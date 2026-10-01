@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cuestionarios</title>
+<link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+
+<header class="barra">
+  <h1>Cuestionarios</h1>
+  <div class="barra-acciones">
+    <button id="btnExportar" class="sec">Exportar JSON</button>
+    <button id="btnImportar" class="sec">Importar JSON</button>
+    <input type="file" id="inputImportar" accept="application/json" hidden>
+  </div>
+</header>
+
+<nav class="migas" id="migas">
+  <span class="miga" data-nivel="materia">Materias</span>
+</nav>
+
+<main>
+  <!-- MATERIAS -->
+  <section id="vista-materias" class="vista">
+    <div class="vista-cab">
+      <h2>Materias</h2>
+      <div class="fila">
+        <input type="text" id="inputMateria" placeholder="Nombre de la nueva materia" maxlength="60">
+        <button id="btnCrearMateria" class="pri">Crear materia</button>
+      </div>
+    </div>
+    <div id="listaMaterias" class="rejilla"></div>
+  </section>
+
+  <!-- SUBCARPETAS DE UNA MATERIA -->
+  <section id="vista-unidades" class="vista oculto">
+    <div class="vista-cab">
+      <button id="btnVolverMaterias" class="sec">&larr; Materias</button>
+      <h2 id="tituloMateria"></h2>
+      <button id="btnNuevaUnidadRapida" class="sec" title="Crea la siguiente unidad con numeración automática">Agregar Unidad N</button>
+    </div>
+
+    <div class="crear-unidad">
+      <input type="text" id="inputUnidad" placeholder="Nombre de la unidad o subcarpeta (ej. Unidad 1)" maxlength="60">
+      <button id="btnCrearUnidad" class="pri">Crear subcarpeta</button>
+    </div>
+
+    <div id="listaUnidades" class="rejilla"></div>
+  </section>
+
+  <!-- CUESTIONARIOS DE UNA SUBCARPETA -->
+  <section id="vista-cuestionarios" class="vista oculto">
+    <div class="vista-cab">
+      <button id="btnVolverUnidades" class="sec">&larr; Unidades</button>
+      <h2 id="tituloUnidad"></h2>
+      <button id="btnNuevoCuestionario" class="pri">Nuevo cuestionario</button>
+    </div>
+    <div id="listaCuestionarios" class="lista"></div>
+  </section>
+
+  <!-- EDITOR -->
+  <section id="vista-editor" class="vista oculto">
+    <div class="vista-cab">
+      <button id="btnVolverCuestionarios" class="sec">&larr; Volver</button>
+      <h2 id="tituloEditor"></h2>
+    </div>
+
+    <div class="editor-titulo">
+      <label for="inputTitulo">Título del cuestionario</label>
+      <input type="text" id="inputTitulo" placeholder="Ej. Biología - Unidad 3" maxlength="80">
+    </div>
+
+    <details class="ayuda" open>
+      <summary>Estructura para pegar las preguntas</summary>
+
+      <h3>Sintaxis 1 &mdash; marcar la correcta con <code>*</code></h3>
+      <pre>1) &iquest;Cu&aacute;l es la capital de M&eacute;xico?
+a) Guadalajara
+*b) Ciudad de M&eacute;xico
+c) Puebla</pre>
+
+      <h3>Sintaxis 2 &mdash; indicar la correcta al final</h3>
+      <pre>1) &iquest;Cu&aacute;l es la capital de M&eacute;xico?
+a) Guadalajara
+b) Ciudad de M&eacute;xico
+c) Puebla
+[correcta: b]</pre>
+
+      <h3>Reglas</h3>
+      <ul>
+        <li>El n&uacute;mero <code>1)</code>, <code>1.</code> o <code>1-</code> inicia una pregunta nueva (es opcional).</li>
+        <li>Las opciones pueden llevar <code>a)</code>, <code>a.</code>, <code>-</code> o nada.</li>
+        <li>La correcta se marca con <code>*</code> al inicio de la opci&oacute;n, o al final con <code>[correcta: b]</code>.</li>
+        <li>Se permiten <code>*a)</code>, <code>a*)</code> o <code>* a)</code>.</li>
+        <li>Deja una l&iacute;nea en blanco entre preguntas si no usas numeraci&oacute;n.</li>
+        <li>El editor detecta autom&aacute;ticamente qu&eacute; sintaxis usaste.</li>
+      </ul>
+    </details>
+
+    <div class="editor-cuerpo">
+      <div class="editor-izq">
+        <label for="inputPreguntas">Preguntas (una por l&iacute;nea)</label>
+        <textarea id="inputPreguntas" spellcheck="false" placeholder="Pega aqu&iacute; tus preguntas y opciones..."></textarea>
+        <div class="editor-acciones">
+          <button id="btnParsear" class="sec">Actualizar vista previa</button>
+          <button id="btnGuardar" class="pri">Guardar cuestionario</button>
+          <button id="btnCancelarEditor" class="sec">Cancelar</button>
+        </div>
+      </div>
+      <div class="editor-der">
+        <label>Vista previa</label>
+        <div id="vistaPrevia" class="previa"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRESENTAR -->
+  <section id="vista-presentar" class="vista oculto">
+    <div class="vista-cab">
+      <button id="btnSalirPresentar" class="sec">&larr; Volver</button>
+      <h2 id="tituloPresentar"></h2>
+    </div>
+
+    <div id="areaPresentar">
+      <div class="progreso">
+        <span id="contadorPregunta"></span>
+        <div class="barra-progreso"><div id="barraRelleno"></div></div>
+      </div>
+      <div id="panelPregunta" class="panel-pregunta"></div>
+      <div class="navegacion">
+        <button id="btnAnterior" class="sec">Anterior</button>
+        <button id="btnSiguiente" class="pri">Siguiente</button>
+        <button id="btnTerminar" class="pri oculto">Terminar</button>
+      </div>
+    </div>
+
+    <div id="panelResultado" class="oculto"></div>
+  </section>
+</main>
+
+<div id="aviso" class="aviso oculto"></div>
+
+<script src="js/parser.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
