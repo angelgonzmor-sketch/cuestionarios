@@ -810,6 +810,7 @@ function indiceFuente(s, fuente) {
   });
 
   aplicarTema(datos.tema || 'oscuro');
+  limpiarBorrador();
   pintarMaterias();
   ver('materias');
 })();
