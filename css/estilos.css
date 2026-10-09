@@ -269,3 +269,11 @@ html[data-tema="claro"] .tarjeta-materia .cab h3,
 html[data-tema="claro"] .vista-cab h2,
 html[data-tema="claro"] body,
 html[data-tema="claro"] main { color: #000; }
+
+html[data-tema="claro"] .pregunta-texto { color: #000 !important; }
+html[data-tema="claro"] .opcion { color: #000 !important; background: var(--tarjeta-bg); }
+html[data-tema="claro"] .item-res .preg { color: #000 !important; }
+html[data-tema="claro"] .tarjeta-cuestionario .izq { color: #000 !important; }
+html[data-tema="claro"] .tarjeta-materia .cab h3 { color: #000 !important; }
+html[data-tema="claro"] .vista-cab h2 { color: #000 !important; }
+html[data-tema="claro"] .op-res { color: #111 !important; }
