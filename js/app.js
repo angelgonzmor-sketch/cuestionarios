@@ -365,22 +365,26 @@
     u.cuestionarios.forEach(function (q) {
       const div = document.createElement('div');
       div.className = 'tarjeta-cuestionario';
+      const enProgreso = Store.cargarProgreso(materiaActual, unidadActual, q.id);
       div.innerHTML =
         '<div class="izq"><strong>' + esc(q.titulo) + '</strong>' +
-        '<span class="meta">' + plural(q.preguntas.length, 'pregunta') + '</span></div>' +
+        '<span class="meta">' + plural(q.preguntas.length, 'pregunta') +
+        (enProgreso && enProgreso.sesion ? ' · <span class="progreso-tag">En progreso</span>' : '') +
+        '</span></div>' +
         '<div class="acciones">' +
-        '<button class="pri" data-acc="resolver">Resolver</button>' +
+        '<button class="pri" data-acc="resolver">' + (enProgreso ? 'Continuar' : 'Resolver') + '</button>' +
         '<button class="sec" data-acc="editar">Editar</button>' +
         '<button class="sec" data-acc="eliminar">Eliminar</button>' +
         '</div>';
       div.addEventListener('click', function (e) {
         const b = e.target.closest('button[data-acc]');
         if (!b) return;
-        if (b.dataset.acc === 'resolver') { cuestionarioActual = q.id; presentar(); }
+        if (b.dataset.acc === 'resolver') { cuestionarioActual = q.id; presentar(enProgreso ? 'continuar' : undefined); }
         else if (b.dataset.acc === 'editar') { cuestionarioActual = q.id; abrirEditor(); }
         else {
           if (!confirm('¿Eliminar el cuestionario "' + q.titulo + '"?')) return;
           u.cuestionarios = u.cuestionarios.filter(function (x) { return x.id !== q.id; });
+          Store.limpiarProgreso(materiaActual, unidadActual, q.id);
           persistir();
           pintarCuestionarios();
         }
@@ -481,6 +485,7 @@
     if (editando) {
       const q = cuestionarioPorId(materiaActual, unidadActual, editando);
       if (q) Object.assign(q, obj);
+      Store.limpiarProgreso(materiaActual, unidadActual, editando);
     } else {
       const nuevo = Object.assign({ id: Store.id() }, obj);
       u.cuestionarios.push(nuevo);
@@ -505,10 +510,43 @@ function indiceFuente(s, fuente) {
     return idx;
   }
 
+  function guardarProgSesion() {
+    if (!sesion) return;
+    if (cuestionarioActual === null || cuestionarioActual === undefined) return;
+    try {
+      Store.guardarProgreso(materiaActual, unidadActual, cuestionarioActual, {
+        sesion: sesion,
+        ts: Date.now()
+      });
+    } catch (e) {}
+  }
+
   function presentar(fuente) {
     const q = cuestionarioPorId(materiaActual, unidadActual, cuestionarioActual);
     if (!q) return;
     if (!q.preguntas.length) return aviso('Este cuestionario no tiene preguntas.', true);
+
+    if (!fuente || fuente === 'continuar') {
+      const prog = Store.cargarProgreso(materiaActual, unidadActual, cuestionarioActual);
+      if (prog && prog.sesion && Array.isArray(prog.sesion.preguntas) && prog.sesion.preguntas.length) {
+        const quiereContinuar = (fuente === 'continuar')
+          ? true
+          : confirm('Hay un progreso guardado de este cuestionario. ¿Deseas continuar donde lo dejaste?');
+        if (quiereContinuar) {
+          sesion = prog.sesion;
+          if (!Array.isArray(sesion.forzadas)) sesion.forzadas = new Array(sesion.preguntas.length).fill(false);
+          if (typeof sesion.indice !== 'number' || sesion.indice >= sesion.preguntas.length) sesion.indice = 0;
+          $('#tituloPresentar').textContent = q.titulo;
+          $('#panelResultado').classList.add('oculto');
+          $('#areaPresentar').classList.remove('oculto');
+          pintarPregunta();
+          ver('presentar');
+          return;
+        }
+        Store.limpiarProgreso(materiaActual, unidadActual, cuestionarioActual);
+      }
+      if (fuente === 'continuar') fuente = undefined;
+    }
 
     let base;
     if (!fuente || fuente === 'todo') {
@@ -540,6 +578,7 @@ function indiceFuente(s, fuente) {
     $('#areaPresentar').classList.remove('oculto');
     pintarPregunta();
     ver('presentar');
+    if (!fuente || fuente === 'todo') guardarProgSesion();
   }
 
   function pintarPregunta() {
@@ -587,6 +626,7 @@ function indiceFuente(s, fuente) {
   function responder(i) {
     sesion.respuestas[sesion.indice] = i;
     pintarPregunta();
+    guardarProgSesion();
   }
 
   function forzarIncorrecta() {
@@ -594,18 +634,21 @@ function indiceFuente(s, fuente) {
     if (sesion.respuestas[sesion.indice] === null) return aviso('Primero responde la pregunta.', true);
     sesion.forzadas[sesion.indice] = !sesion.forzadas[sesion.indice];
     pintarPregunta();
+    guardarProgSesion();
   }
 
   function siguiente() {
     if (sesion.indice === sesion.preguntas.length - 1) return;
     sesion.indice++;
     pintarPregunta();
+    guardarProgSesion();
   }
 
   function anterior() {
     if (sesion.indice === 0) return;
     sesion.indice--;
     pintarPregunta();
+    guardarProgSesion();
   }
 
   function salirPresentar() {
@@ -619,6 +662,8 @@ function indiceFuente(s, fuente) {
     const s = sesion;
     const sinResponder = s.respuestas.filter(function (r) { return r === null; }).length;
     if (sinResponder && !confirm('Quedan ' + plural(sinResponder, 'pregunta') + ' sin responder. ¿Ver el resultado?')) return;
+
+    Store.limpiarProgreso(materiaActual, unidadActual, cuestionarioActual);
 
     let acertadas = 0;
     let repasables = 0;
@@ -706,6 +751,7 @@ function indiceFuente(s, fuente) {
       materiaActual = null;
       unidadActual = null;
       cuestionarioActual = null;
+      Store.limpiarTodosProgresos();
       persistir();
       pintarMaterias();
       limpiarBorrador();

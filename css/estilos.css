@@ -277,3 +277,5 @@ html[data-tema="claro"] .tarjeta-cuestionario .izq { color: #000 !important; }
 html[data-tema="claro"] .tarjeta-materia .cab h3 { color: #000 !important; }
 html[data-tema="claro"] .vista-cab h2 { color: #000 !important; }
 html[data-tema="claro"] .op-res { color: #111 !important; }
+
+.progreso-tag { color: var(--exito); font-weight: 600; }

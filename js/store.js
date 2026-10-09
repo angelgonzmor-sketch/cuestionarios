@@ -11,6 +11,51 @@
     return { version: 2, materias: [], tema: 'oscuro', borrador: null };
   }
 
+  const CLAVE_PROG = 'cuestionarios.progreso.v1';
+
+  function cargarProgresos() {
+    try {
+      const crudo = localStorage.getItem(CLAVE_PROG);
+      return crudo ? JSON.parse(crudo) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function guardarProgresos(mapa) {
+    try {
+      localStorage.setItem(CLAVE_PROG, JSON.stringify(mapa));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function claveProg(materiaId, unidadId, cuestionarioId) {
+    return materiaId + '|' + unidadId + '|' + cuestionarioId;
+  }
+
+  function guardarProgreso(materiaId, unidadId, cuestionarioId, datos) {
+    const mapa = cargarProgresos();
+    mapa[claveProg(materiaId, unidadId, cuestionarioId)] = datos;
+    guardarProgresos(mapa);
+  }
+
+  function cargarProgreso(materiaId, unidadId, cuestionarioId) {
+    const mapa = cargarProgresos();
+    return mapa[claveProg(materiaId, unidadId, cuestionarioId)] || null;
+  }
+
+  function limpiarProgreso(materiaId, unidadId, cuestionarioId) {
+    const mapa = cargarProgresos();
+    delete mapa[claveProg(materiaId, unidadId, cuestionarioId)];
+    guardarProgresos(mapa);
+  }
+
+  function limpiarTodosProgresos() {
+    try { localStorage.removeItem(CLAVE_PROG); } catch (e) {}
+  }
+
   function limpiarCuestionarios(lista) {
     return (Array.isArray(lista) ? lista : [])
       .filter(function (q) { return q && typeof q.titulo === 'string' && q.titulo.trim() !== ''; })
@@ -116,6 +161,10 @@
     vacio: vacio,
     normalizar: normalizar,
     contar: contar,
-    id: id
+    id: id,
+    guardarProgreso: guardarProgreso,
+    cargarProgreso: cargarProgreso,
+    limpiarProgreso: limpiarProgreso,
+    limpiarTodosProgresos: limpiarTodosProgresos
   };
 })();
