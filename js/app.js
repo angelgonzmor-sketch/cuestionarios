@@ -492,16 +492,9 @@
   }
 
   // ---------- PRESENTAR ----------
-  function barajar(a) {
-    const b = a.slice();
-    for (let i = b.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const t = b[i]; b[i] = b[j]; b[j] = t;
-    }
-    return b;
-  }
+      function barajar(a){var arr=(Array.isArray(a)?a.slice():[]);for(var i=arr.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=arr[i];arr[i]=arr[j];arr[j]=t;}return arr;}
 
-  function indiceFuente(s, fuente) {
+function indiceFuente(s, fuente) {
     const idx = [];
     for (let i = 0; i < s.preguntas.length; i++) {
       const real = s.respuestas[i] === s.preguntas[i].correcta;
