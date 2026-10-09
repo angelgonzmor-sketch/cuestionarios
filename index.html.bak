@@ -1,0 +1,32 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cuestionarios</title>
+<script>
+(function() {
+  try {
+    var k = 'cuestionarios.v2';
+    var d = localStorage.getItem(k);
+    if (d) {
+      var j = JSON.parse(d);
+      if (j && j.tema) {
+        document.documentElement.setAttribute('data-tema', j.tema);
+      }
+    }
+  } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+<header class="barra">
+  <h1>Cuestionarios</h1>
+  <div class="barra-acciones">
+    <button id="btnTema" class="sec" title="Cambiar tema">Tema</button>
+    <button id="btnExportar" class="sec">Exportar JSON</button>
+    <button id="btnImportar" class="sec">Importar JSON</button>
+    <input type="file" id="inputImportar" accept="application/json" hidden>
+  </div>
+</header>

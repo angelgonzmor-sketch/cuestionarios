@@ -127,7 +127,6 @@ c) Puebla
       <div class="navegacion">
         <button id="btnAnterior" class="sec">Anterior</button>
         <button id="btnSiguiente" class="pri">Siguiente</button>
-        <button id="btnForzar" class="sec oculto">Forzar incorrecta</button>
         <button id="btnTerminar" class="pri oculto">Terminar</button>
       </div>
     </div>

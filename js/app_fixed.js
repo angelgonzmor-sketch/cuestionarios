@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
 
   const $ = function (sel) { return document.querySelector(sel); };
@@ -10,94 +10,6 @@
   let cuestionarioActual = null;
   let editando = null;
   let sesion = null;
-  function aplicarTema(t) {
-    const tema = (t === 'claro') ? 'claro' : 'oscuro';
-    document.documentElement.setAttribute('data-tema', tema);
-    datos.tema = tema;
-    persistir();
-  }
-
-  function toggleTema() {
-    const actual = document.documentElement.getAttribute('data-tema') || datos.tema || 'oscuro';
-    aplicarTema(actual === 'oscuro' ? 'claro' : 'oscuro');
-  }
-
-  // ---------- borrador (autoguardado del editor) ----------
-  function marcarIndicador(texto) {
-    const ind = document.getElementById('indicadorGuardado');
-    if (!ind) return;
-    ind.textContent = texto || '';
-    clearTimeout(window.__tInd);
-    if (texto) window.__tInd = setTimeout(function () { ind.textContent = ''; }, 1600);
-  }
-
-  function editorVisible() {
-    const v = document.getElementById('vista-editor');
-    return Boolean(v && !v.classList.contains('oculto'));
-  }
-
-  function hayContenidoBorrador() {
-    const t = document.getElementById('inputTitulo');
-    const p = document.getElementById('inputPreguntas');
-    if (!t || !p) return false;
-    return Boolean(t.value.trim() || p.value.trim() || editando);
-  }
-
-  function guardarBorrador() {
-    try {
-      if (!editorVisible() || !hayContenidoBorrador()) return;
-      const t = document.getElementById('inputTitulo');
-      const p = document.getElementById('inputPreguntas');
-      datos.borrador = {
-        titulo: t ? t.value : '',
-        preguntas: p ? p.value : '',
-        materiaId: materiaActual,
-        unidadId: unidadActual,
-        editando: editando,
-        ts: Date.now()
-      };
-      persistir();
-      marcarIndicador('Borrador guardado');
-    } catch (e) {}
-  }
-
-  function programarGuardadoBorrador() {
-    clearTimeout(window.__tDraft);
-    window.__tDraft = setTimeout(guardarBorrador, 500);
-  }
-
-  function limpiarBorrador() {
-    clearTimeout(window.__tDraft);
-    if (datos.borrador) { datos.borrador = null; persistir(); }
-    marcarIndicador('');
-  }
-
-  function borradorVigente() {
-    const b = datos.borrador;
-    if (!b) return null;
-    const tieneTexto = Boolean((b.titulo && b.titulo.trim()) || (b.preguntas && b.preguntas.trim()));
-    if (!tieneTexto) return null;
-    if (!materiaPorId(b.materiaId) || !unidadPorId(b.materiaId, b.unidadId)) return null;
-    if (b.editando && !cuestionarioPorId(b.materiaId, b.unidadId, b.editando)) return null;
-    return b;
-  }
-
-  function recuperarBorrador() {
-    const b = borradorVigente();
-    if (!b) return false;
-    materiaActual = b.materiaId;
-    unidadActual = b.unidadId;
-    editando = b.editando || null;
-    cuestionarioActual = b.editando || null;
-    document.getElementById('tituloEditor').textContent = b.editando ? 'Editar cuestionario' : 'Nuevo cuestionario';
-    document.getElementById('inputTitulo').value = b.titulo || '';
-    document.getElementById('inputPreguntas').value = b.preguntas || '';
-    pintarPrevia();
-    ver('editor');
-    marcarIndicador('Borrador recuperado');
-    return true;
-  }
-
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -172,7 +84,7 @@
       if (i < partes.length - 1) {
         const sep = document.createElement('span');
         sep.className = 'miga-sep';
-        sep.textContent = '›';
+        sep.textContent = 'â€º';
         m.appendChild(sep);
       }
       m.appendChild(s);
@@ -185,7 +97,7 @@
     cont.innerHTML = '';
     pintarMigas('materias');
     if (datos.materias.length === 0) {
-      cont.innerHTML = '<p class="meta">Aún no hay materias. Crea la primera arriba.</p>';
+      cont.innerHTML = '<p class="meta">AÃºn no hay materias. Crea la primera arriba.</p>';
       return;
     }
 
@@ -223,7 +135,7 @@
           const nombre = prompt('Nuevo nombre de la materia:', m.nombre);
           if (nombre === null) return;
           const limpio = nombre.trim();
-          if (!limpio) return aviso('El nombre no puede quedar vacío.', true);
+          if (!limpio) return aviso('El nombre no puede quedar vacÃ­o.', true);
           if (nombreDuplicado(datos.materias.map(function (x) { return x.nombre; }), limpio, m.id))
             return aviso('Ya existe una materia con ese nombre.', true);
           m.nombre = limpio;
@@ -231,7 +143,7 @@
           pintarMaterias();
         } else {
           const extra = unidades ? ' con sus ' + plural(unidades, 'subcarpeta') + ' y ' + plural(totalQ, 'cuestionario') : '';
-          if (!confirm('¿Eliminar la materia "' + m.nombre + '"' + extra + '? No se puede deshacer.')) return;
+          if (!confirm('Â¿Eliminar la materia "' + m.nombre + '"' + extra + '? No se puede deshacer.')) return;
           datos.materias = datos.materias.filter(function (x) { return x.id !== m.id; });
           persistir();
           pintarMaterias();
@@ -312,7 +224,7 @@
           const nombre = prompt('Nuevo nombre de la subcarpeta:', u.nombre);
           if (nombre === null) return;
           const limpio = nombre.trim();
-          if (!limpio) return aviso('El nombre no puede quedar vacío.', true);
+          if (!limpio) return aviso('El nombre no puede quedar vacÃ­o.', true);
           if (nombreDuplicado(m.subcarpetas.map(function (x) { return x.nombre; }), limpio, u.id))
             return aviso('Ya existe una subcarpeta con ese nombre en esta materia.', true);
           u.nombre = limpio;
@@ -320,7 +232,7 @@
           pintarUnidades();
         } else {
           const extra = u.cuestionarios.length ? ' con sus ' + plural(u.cuestionarios.length, 'cuestionario') : '';
-          if (!confirm('¿Eliminar la subcarpeta "' + u.nombre + '"' + extra + '? No se puede deshacer.')) return;
+          if (!confirm('Â¿Eliminar la subcarpeta "' + u.nombre + '"' + extra + '? No se puede deshacer.')) return;
           m.subcarpetas = m.subcarpetas.filter(function (x) { return x.id !== u.id; });
           persistir();
           pintarUnidades();
@@ -353,7 +265,7 @@
     if (!u) { unidadActual = null; return pintarUnidades(); }
     const m = materiaPorId(materiaActual);
 
-    $('#tituloUnidad').textContent = m.nombre + ' › ' + u.nombre;
+    $('#tituloUnidad').textContent = m.nombre + ' â€º ' + u.nombre;
     pintarMigas('cuestionarios', m.nombre, u.nombre);
 
     const cont = $('#listaCuestionarios');
@@ -379,7 +291,7 @@
         if (b.dataset.acc === 'resolver') { cuestionarioActual = q.id; presentar(); }
         else if (b.dataset.acc === 'editar') { cuestionarioActual = q.id; abrirEditor(); }
         else {
-          if (!confirm('¿Eliminar el cuestionario "' + q.titulo + '"?')) return;
+          if (!confirm('Â¿Eliminar el cuestionario "' + q.titulo + '"?')) return;
           u.cuestionarios = u.cuestionarios.filter(function (x) { return x.id !== q.id; });
           persistir();
           pintarCuestionarios();
@@ -397,13 +309,6 @@
     $('#tituloEditor').textContent = 'Nuevo cuestionario';
     $('#inputTitulo').value = '';
     $('#inputPreguntas').value = '';
-    const b = datos.borrador;
-    if (b && b.materiaId === materiaActual && b.unidadId === unidadActual && !b.editando &&
-        ((b.titulo && b.titulo.trim()) || (b.preguntas && b.preguntas.trim()))) {
-      $('#inputTitulo').value = b.titulo || '';
-      $('#inputPreguntas').value = b.preguntas || '';
-      aviso('Se recuperó un borrador sin guardar.');
-    }
     pintarPrevia();
     ver('editor');
     $('#inputTitulo').focus();
@@ -435,7 +340,7 @@
     const cont = $('#vistaPrevia');
     cont.innerHTML = '';
     if (r.preguntas.length === 0 && r.errores.length === 0) {
-      cont.innerHTML = '<p class="meta">Aquí aparecerá la vista previa de las preguntas.</p>';
+      cont.innerHTML = '<p class="meta">AquÃ­ aparecerÃ¡ la vista previa de las preguntas.</p>';
     }
     r.preguntas.forEach(function (p) {
       const d = document.createElement('div');
@@ -451,7 +356,7 @@
       const d = document.createElement('div');
       d.className = 'op-prev incorrecta';
       d.innerHTML = '<strong>Problemas encontrados (' + r.errores.length + '):</strong>' +
-        r.errores.map(function (e) { return '<div>Línea ' + e.linea + ': ' + esc(e.msg) + '</div>'; }).join('');
+        r.errores.map(function (e) { return '<div>LÃ­nea ' + e.linea + ': ' + esc(e.msg) + '</div>'; }).join('');
       cont.appendChild(d);
     }
     return r;
@@ -459,11 +364,11 @@
 
   function guardarCuestionario() {
     const titulo = $('#inputTitulo').value.trim();
-    if (!titulo) return aviso('Ponle un título al cuestionario.', true);
+    if (!titulo) return aviso('Ponle un tÃ­tulo al cuestionario.', true);
     const r = pintarPrevia();
-    if (r.preguntas.length === 0) return aviso('No se detectó ninguna pregunta válida.', true);
-    if (r.errores.length && !confirm('Hay ' + r.errores.length + ' problema(s) en el texto. Se guardarán solo las ' +
-      plural(r.preguntas.length, 'pregunta') + ' válida(s). ¿Continuar?')) return;
+    if (r.preguntas.length === 0) return aviso('No se detectÃ³ ninguna pregunta vÃ¡lida.', true);
+    if (r.errores.length && !confirm('Hay ' + r.errores.length + ' problema(s) en el texto. Se guardarÃ¡n solo las ' +
+      plural(r.preguntas.length, 'pregunta') + ' vÃ¡lida(s). Â¿Continuar?')) return;
 
     const u = unidadPorId(materiaActual, unidadActual);
     if (!u) return aviso('No hay subcarpeta seleccionada.', true);
@@ -501,48 +406,23 @@
     return b;
   }
 
-  function indiceFuente(s, fuente) {
-    const idx = [];
-    for (let i = 0; i < s.preguntas.length; i++) {
-      const real = s.respuestas[i] === s.preguntas[i].correcta;
-      const forzada = Boolean(s.forzadas[i]);
-      if (fuente === 'forzadas') { if (forzada) idx.push(i); }
-      else if (fuente === 'falladas') { if (!real || forzada) idx.push(i); }
-    }
-    return idx;
-  }
-
-  function presentar(fuente) {
+  function presentar() {
     const q = cuestionarioPorId(materiaActual, unidadActual, cuestionarioActual);
     if (!q) return;
     if (!q.preguntas.length) return aviso('Este cuestionario no tiene preguntas.', true);
-
-    let base;
-    if (!fuente || fuente === 'todo') {
-      base = q.preguntas;
-    } else {
-      if (!sesion) return;
-      const idx = indiceFuente(sesion, fuente);
-      if (!idx.length) return aviso('No hay preguntas para repetir con ese criterio.', true);
-      base = idx.map(function (i) { return sesion.preguntas[i]; });
-    }
-
-    const preguntas = barajar(base).map(function (p) {
-      const ops = barajar(p.opciones);
-      return {
-        texto: p.texto,
-        opciones: ops,
-        correcta: ops.findIndex(function (o) { return o.correcta; })
-      };
-    });
-
+    $('#tituloPresentar').textContent = q.titulo;
     sesion = {
-      preguntas: preguntas,
+      preguntas: barajar(q.preguntas).map(function (p) {
+        const ops = barajar(p.opciones);
+        return {
+          texto: p.texto,
+          opciones: ops,
+          correcta: ops.findIndex(function (o) { return o.correcta; })
+        };
+      }),
       indice: 0,
-      respuestas: new Array(preguntas.length).fill(null),
-      forzadas: new Array(preguntas.length).fill(false)
+      respuestas: new Array(q.preguntas.length).fill(null)
     };
-    $('#tituloPresentar').textContent = q.titulo + (fuente && fuente !== 'todo' ? ' · repaso' : '');
     $('#panelResultado').classList.add('oculto');
     $('#areaPresentar').classList.remove('oculto');
     pintarPregunta();
@@ -553,7 +433,6 @@
     const s = sesion;
     const p = s.preguntas[s.indice];
     const elegida = s.respuestas[s.indice];
-    const forzada = Boolean(s.forzadas[s.indice]);
     $('#contadorPregunta').textContent = 'Pregunta ' + (s.indice + 1) + ' de ' + s.preguntas.length;
     $('#barraRelleno').style.width = ((s.indice + 1) / s.preguntas.length * 100) + '%';
 
@@ -564,7 +443,6 @@
         if (i === p.correcta) cls += ' correcta';
         else if (i === elegida) cls += ' incorrecta';
       }
-      if (forzada && i === p.correcta) cls += ' forzada';
       const marca = elegida !== null ? (i === p.correcta ? '&#10003; ' : (i === elegida ? '&times; ' : '')) : '';
       return '<button class="' + cls + '" data-i="' + i + '">' + marca + esc(o.texto) + '</button>';
     }).join('');
@@ -577,13 +455,6 @@
       b.addEventListener('click', function () { responder(Number(b.dataset.i)); });
     });
 
-    const btnForzar = $('#btnForzar');
-    if (btnForzar) {
-      btnForzar.classList.toggle('oculto', elegida === null);
-      btnForzar.classList.toggle('activo', forzada);
-      btnForzar.textContent = forzada ? 'Quitar forzada' : 'Forzar incorrecta';
-    }
-
     $('#btnAnterior').disabled = s.indice === 0;
     const ultima = s.indice === s.preguntas.length - 1;
     $('#btnSiguiente').classList.toggle('oculto', ultima);
@@ -593,13 +464,6 @@
 
   function responder(i) {
     sesion.respuestas[sesion.indice] = i;
-    pintarPregunta();
-  }
-
-  function forzarIncorrecta() {
-    if (!sesion) return;
-    if (sesion.respuestas[sesion.indice] === null) return aviso('Primero responde la pregunta.', true);
-    sesion.forzadas[sesion.indice] = !sesion.forzadas[sesion.indice];
     pintarPregunta();
   }
 
@@ -625,20 +489,14 @@
   function terminar() {
     const s = sesion;
     const sinResponder = s.respuestas.filter(function (r) { return r === null; }).length;
-    if (sinResponder && !confirm('Quedan ' + plural(sinResponder, 'pregunta') + ' sin responder. ¿Ver el resultado?')) return;
+    if (sinResponder && !confirm('Quedan ' + plural(sinResponder, 'pregunta') + ' sin responder. Â¿Ver el resultado?')) return;
 
     let acertadas = 0;
-    let repasables = 0;
-    let forzadas = 0;
     const items = s.preguntas.map(function (p, i) {
       const r = s.respuestas[i];
-      const forzada = Boolean(s.forzadas[i]);
-      const real = r === p.correcta;
-      const ok = real && !forzada;
+      const ok = r === p.correcta;
       if (ok) acertadas++;
-      if (!real || forzada) repasables++;
-      if (forzada) forzadas++;
-      return { p: p, elegida: r, ok: ok, forzada: forzada };
+      return { p: p, elegida: r, ok: ok };
     });
     const total = s.preguntas.length;
     const pct = Math.round(acertadas / total * 100);
@@ -651,12 +509,9 @@
       '<h2>Resultado</h2>' +
       '<div class="puntaje">' + pct + '%</div>' +
       '<div class="resumen">' + acertadas + ' acertadas &middot; ' + (total - acertadas) +
-      ' erradas &middot; ' + total + ' en total' +
-      (forzadas ? ' &middot; ' + forzadas + ' marcadas para repaso' : '') + '</div>' +
+      ' erradas &middot; ' + total + ' en total</div>' +
       '<div class="fila centro">' +
-      '<button class="pri" id="btnRepetirTodo">Repetir todo</button>' +
-      (repasables ? '<button class="sec" id="btnRepetirFalladas">Repetir falladas (' + repasables + ')</button>' : '') +
-      (forzadas ? '<button class="sec" id="btnRepetirForzadas">Repetir forzadas (' + forzadas + ')</button>' : '') +
+      '<button class="pri" id="btnReintentar">Intentar de nuevo</button>' +
       '<button class="sec" id="btnVolverLista">Volver a cuestionarios</button>' +
       '</div></div>' +
       '<div class="lista-resultado">' + items.map(function (it, i) {
@@ -666,16 +521,13 @@
           else if (j === it.elegida) cls += ' err';
           return '<div class="' + cls + '">' + (j === it.p.correcta ? '&#10003; ' : (j === it.elegida ? '&times; ' : '')) + esc(o.texto) + '</div>';
         }).join('');
-        return '<div class="item-res' + (it.forzada ? ' forzada' : '') + '">' +
+        return '<div class="item-res">' +
           '<div class="preg">' + (i + 1) + '. ' + esc(it.p.texto) + ' ' +
-          (it.ok ? '<span class="marca ok">&#10003;</span>' : '<span class="marca err">&times;</span>') +
-          (it.forzada ? ' <span class="marca forzada">forzada</span>' : '') + '</div>' +
+          (it.ok ? '<span class="marca ok">&#10003;</span>' : '<span class="marca err">&times;</span>') + '</div>' +
           '<div class="ops-res">' + ops + '</div></div>';
       }).join('') + '</div>';
 
-    $('#btnRepetirTodo').addEventListener('click', function () { presentar('todo'); });
-    if ($('#btnRepetirFalladas')) $('#btnRepetirFalladas').addEventListener('click', function () { presentar('falladas'); });
-    if ($('#btnRepetirForzadas')) $('#btnRepetirForzadas').addEventListener('click', function () { presentar('forzadas'); });
+    $('#btnReintentar').addEventListener('click', presentar);
     $('#btnVolverLista').addEventListener('click', salirPresentar);
   }
 
@@ -699,15 +551,15 @@
       try {
         json = JSON.parse(lector.result);
       } catch (e) {
-        return aviso('El archivo no es un JSON válido.', true);
+        return aviso('El archivo no es un JSON vÃ¡lido.', true);
       }
       const limpio = Store.normalizar(json);
       if (!limpio) return aviso('El archivo no tiene la estructura de cuestionarios.', true);
 
       const c = Store.contar(limpio);
-      if (!confirm('Se importarán ' + plural(c.materias, 'materia') + ', ' +
+      if (!confirm('Se importarÃ¡n ' + plural(c.materias, 'materia') + ', ' +
         plural(c.subcarpetas, 'subcarpeta') + ' y ' + plural(c.cuestionarios, 'cuestionario') +
-        ', y se reemplazarán los datos actuales. ¿Continuar?')) return;
+        ', y se reemplazarÃ¡n los datos actuales. Â¿Continuar?')) return;
 
       datos = limpio;
       materiaActual = null;
@@ -715,7 +567,6 @@
       cuestionarioActual = null;
       persistir();
       pintarMaterias();
-      limpiarBorrador();
       ver('materias');
       aviso('Importado: ' + plural(c.materias, 'materia') + ', ' +
         plural(c.subcarpetas, 'subcarpeta') + ', ' + plural(c.cuestionarios, 'cuestionario') + '.');
@@ -724,7 +575,6 @@
   }
 
   // ---------- ARRANQUE ----------
-  $('#btnTema').addEventListener('click', toggleTema);
   $('#btnCrearMateria').addEventListener('click', crearMateria);
   $('#inputMateria').addEventListener('keydown', function (e) { if (e.key === 'Enter') crearMateria(); });
   $('#btnVolverMaterias').addEventListener('click', function () {
@@ -746,17 +596,14 @@
   $('#btnVolverCuestionarios').addEventListener('click', function () { pintarCuestionarios(); });
   $('#btnParsear').addEventListener('click', pintarPrevia);
   $('#btnGuardar').addEventListener('click', guardarCuestionario);
-  $('#btnCancelarEditor').addEventListener('click', function () { limpiarBorrador(); pintarCuestionarios(); });
-  $('#inputTitulo').addEventListener('input', programarGuardadoBorrador);
+  $('#btnCancelarEditor').addEventListener('click', function () { pintarCuestionarios(); });
   $('#inputPreguntas').addEventListener('input', function () {
     clearTimeout(window.__tPrev);
     window.__tPrev = setTimeout(pintarPrevia, 350);
-    programarGuardadoBorrador();
   });
   $('#btnSalirPresentar').addEventListener('click', salirPresentar);
   $('#btnAnterior').addEventListener('click', anterior);
   $('#btnSiguiente').addEventListener('click', siguiente);
-  $('#btnForzar').addEventListener('click', forzarIncorrecta);
   $('#btnTerminar').addEventListener('click', terminar);
   $('#btnExportar').addEventListener('click', exportar);
   $('#btnImportar').addEventListener('click', function () { $('#inputImportar').click(); });
@@ -765,14 +612,6 @@
     e.target.value = '';
   });
 
-  window.addEventListener('beforeunload', function () {
-    clearTimeout(window.__tDraft);
-    if (editorVisible()) guardarBorrador();
-  });
-
-  aplicarTema(datos.tema || 'oscuro');
-  if (!recuperarBorrador()) {
-    pintarMaterias();
-    ver('materias');
-  }
+  pintarMaterias();
+  ver('materias');
 })();
