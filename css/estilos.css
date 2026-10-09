@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --fondo: #0e1221;
   --fondo2: #121831;
   --primario: #4d7cfe;
@@ -58,7 +58,7 @@ main { padding: clamp(1rem, 2vw, 1.5rem); }
   display: flex; align-items: center; gap: 1rem;
   flex-wrap: wrap; margin-bottom: 1rem;
 }
-.vista-cab h2 { flex: 1 1 auto; min-width: 10rem; }
+.vista-cab h2 { flex: 1 1 auto; min-width: 10rem;  color: var(--texto); }
 .fila { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
 input[type="text"], textarea {
   background: var(--input-bg);
@@ -121,7 +121,7 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 }
 .tarjeta-materia .cab { display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem; }
 .tarjeta-materia h3 { font-size: 1.15rem; line-height: 1.2; }
-.tarjeta-materia .meta { color: var(--texto-sec); }
+.tarjeta-materia .meta { color: var(--texto-sec);  color: var(--texto-sec); }
 .tarjeta-materia .acciones { display: flex; gap: .4rem; flex-wrap: wrap; }
 .lista { display: flex; flex-direction: column; gap: .75rem; }
 .tarjeta-cuestionario {
@@ -203,13 +203,13 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   height: 100%; background: var(--primario); transition: width .15s ease;
 }
 .panel-pregunta { display: flex; flex-direction: column; gap: 1rem; }
-.pregunta-texto { font-size: clamp(1.05rem, 2.2vw, 1.35rem); line-height: 1.5; }
+.pregunta-texto { font-size: clamp(1.05rem, 2.2vw, 1.35rem); line-height: 1.5; color: var(--texto);  color: var(--texto); }
 .opciones { display: flex; flex-direction: column; gap: .6rem; }
 .opcion {
   text-align: left; background: var(--tarjeta-bg);
   border: 1px solid var(--borde); padding: .85rem 1rem;
   border-radius: .65rem; font-size: 1rem; line-height: 1.5;
-}
+ color: var(--texto);  color: var(--texto); }
 .opcion.correcta { background: rgba(63,185,132,.18); border-color: rgba(63,185,132,.65); }
 .opcion.incorrecta { background: rgba(242,111,111,.18); border-color: rgba(242,111,111,.65); }
 .opcion.desactivada { pointer-events: none; }
@@ -235,9 +235,9 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .resumen { color: var(--texto-sec); }
 .lista-resultado { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; }
 .item-res { background: var(--tarjeta-bg); border: 1px solid var(--borde); border-radius: .65rem; padding: .9rem 1rem; }
-.item-res .preg { font-weight: 600; margin-bottom: .5rem; line-height: 1.5; }
+.item-res .preg { font-weight: 600; margin-bottom: .5rem; line-height: 1.5;  color: var(--texto);  color: var(--texto); }
 .item-res .ops-res { display: flex; flex-direction: column; gap: .4rem; }
-.op-res { padding: .4rem .55rem; border-radius: .5rem; }
+.op-res { padding: .4rem .55rem; border-radius: .5rem;  color: var(--texto-sec);  color: var(--texto-sec); }
 .op-res.ok { color: var(--exito); }
 .op-res.err { color: var(--error); text-decoration: line-through; }
 .op-res.correcta { border: 1px dashed rgba(63,185,132,.5); background: rgba(63,185,132,.1); }
