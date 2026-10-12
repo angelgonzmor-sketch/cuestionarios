@@ -29,7 +29,7 @@ $user = (& $gh api user --jq ".login").Trim()
 $repo = "cuestionarios"
 $raiz = $PSScriptRoot
 
-$archivos = @("index.html", "README.md", "css/estilos.css", "js/parser.js", "js/store.js", "js/app.js")
+$archivos = @("index.html", "README.md", "css/estilos.css", "js/parser.js", "js/store.js", "js/sync.js", "js/app.js")
 $faltan = @()
 foreach ($a in $archivos) {
   if (-not (Test-Path (Join-Path $raiz $a))) { $faltan += $a }

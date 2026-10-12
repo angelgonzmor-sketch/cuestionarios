@@ -809,6 +809,17 @@ function indiceFuente(s, fuente) {
     if (editorVisible()) guardarBorrador();
   });
 
+  // Recarga los datos desde el almacenamiento (usado por js/sync.js cuando
+  // llega una version nueva desde otro dispositivo) y repinta la vista actual.
+  window.AppSync = {
+    refrescar: function () {
+      datos = Store.cargar();
+      if (!$('#vista-unidades').classList.contains('oculto')) pintarUnidades();
+      else if (!$('#vista-cuestionarios').classList.contains('oculto')) pintarCuestionarios();
+      else if (!$('#vista-materias').classList.contains('oculto')) pintarMaterias();
+    }
+  };
+
   aplicarTema(datos.tema || 'oscuro');
   limpiarBorrador();
   pintarMaterias();
