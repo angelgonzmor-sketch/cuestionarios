@@ -21,12 +21,48 @@
 <link rel="stylesheet" href="css/estilos.css">
 </head>
 <body>
+<div id="pantallaLogin" class="login-pantalla">
+  <div class="login-caja">
+    <h2>Cuestionarios</h2>
+    <p class="meta login-sub">Inicia sesión para tener tus cuestionarios y tu progreso actualizados en todos tus dispositivos.</p>
+    <div class="login-tabs">
+      <button id="tabLogin" class="pri">Iniciar sesión</button>
+      <button id="tabRegistro" class="sec">Crear cuenta</button>
+    </div>
+    <form id="formLogin" class="login-form" autocomplete="on">
+      <input type="email" id="loginCorreo" placeholder="Correo" autocomplete="username" required>
+      <input type="password" id="loginPassword" placeholder="Contraseña" autocomplete="current-password" required>
+      <label class="login-recordar"><input type="checkbox" id="loginRecordar" checked> Mantener la sesión iniciada en este dispositivo</label>
+      <button type="submit" class="pri ancho">Entrar</button>
+    </form>
+    <form id="formRegistro" class="login-form oculto" autocomplete="on">
+      <input type="text" id="regNombre" placeholder="Tu nombre" maxlength="40" required>
+      <input type="email" id="regCorreo" placeholder="Correo" autocomplete="username" required>
+      <input type="password" id="regPassword" placeholder="Contraseña (mínimo 6 caracteres)" autocomplete="new-password" required minlength="6">
+      <button type="submit" class="pri ancho">Crear cuenta y entrar</button>
+    </form>
+    <p id="loginError" class="login-error oculto"></p>
+    <p class="meta login-nota">La contraseña se guarda cifrada en este navegador. Con un servidor de sincronización, los datos viajan entre dispositivos; sin él, cada cuenta guarda su caja fuerte local.</p>
+  </div>
+</div>
 <header class="barra">
   <h1>Cuestionarios</h1>
   <div class="barra-acciones">
+    <span id="estadoNube" class="meta nube-estado" title="Copia de seguridad automática para sincronizar entre dispositivos">&#9729; Sin sincronizar</span>
+    <div class="cuenta-menu-wrap">
+      <button id="btnCuenta" class="sec" title="Cuenta y sincronización">&#128100; Entrar</button>
+      <div id="menuCuenta" class="cuenta-menu oculto">
+        <p id="cuentaNombre" class="cuenta-nombre"></p>
+        <p id="cuentaCorreo" class="meta"></p>
+        <p id="cuentaEstadoSync" class="meta"></p>
+        <button id="btnAjustesSync" class="sec">Ajustes de sincronización</button>
+        <button id="btnCerrarSesion" class="sec">Cerrar sesión</button>
+      </div>
+    </div>
     <button id="btnTema" class="sec" title="Cambiar tema">Tema</button>
     <button id="btnExportar" class="sec">Exportar JSON</button>
     <button id="btnImportar" class="sec">Importar JSON</button>
+    <button id="btnNube" class="sec" title="Traer los cuestionarios y el progreso guardados desde otro dispositivo (o desde la copia de esta misma cuenta)">Sincronizar</button>
     <input type="file" id="inputImportar" accept="application/json" hidden>
   </div>
 </header>
@@ -137,6 +173,7 @@ c) Puebla
 <div id="aviso" class="aviso oculto"></div>
 <script src="js/parser.js"></script>
 <script src="js/store.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

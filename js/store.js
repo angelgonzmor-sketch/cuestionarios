@@ -56,6 +56,58 @@
     try { localStorage.removeItem(CLAVE_PROG); } catch (e) {}
   }
 
+  // ---------- sincronización entre dispositivos ----------
+  // Imita el guardado de una cuenta de Google: los cuestionarios y el progreso
+  // de cada sesión viajan dentro del mismo JSON de Exportar/Importar, de modo
+  // que se pueden mover entre dispositivos o navegadores.
+  const CLAVE_NUBE = 'cuestionarios.nube.v1';
+
+  function guardarNube(contenido) {
+    try {
+      localStorage.setItem(CLAVE_NUBE, contenido);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function cargarNube() {
+    try {
+      return localStorage.getItem(CLAVE_NUBE);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function exportarContenido(conProgresos) {
+    const copia = JSON.parse(JSON.stringify(datos_ || {}));
+    if (conProgresos) copia.progresos = cargarProgresos();
+    delete copia.borrador;
+    return JSON.stringify(copia, null, 2);
+  }
+
+  function importarContenido(texto, conProgresos) {
+    let json;
+    try {
+      json = JSON.parse(texto);
+    } catch (e) {
+      return { ok: false, error: 'El contenido no es un JSON válido.' };
+    }
+    const limpio = normalizar(json);
+    if (!limpio) return { ok: false, error: 'El contenido no tiene la estructura de cuestionarios.' };
+    datos_ = limpio;
+    guardar(limpio);
+    if (conProgresos && json && json.progresos && typeof json.progresos === 'object') {
+      guardarProgresos(json.progresos);
+    } else {
+      limpiarTodosProgresos();
+    }
+    return { ok: true, datos: limpio };
+  }
+
+  let datos_ = null;
+  function setDatos(d) { datos_ = d; }
+
   function limpiarCuestionarios(lista) {
     return (Array.isArray(lista) ? lista : [])
       .filter(function (q) { return q && typeof q.titulo === 'string' && q.titulo.trim() !== ''; })
@@ -116,7 +168,11 @@
       });
 
     const tema = (datos.tema === 'claro' || datos.tema === 'oscuro') ? datos.tema : 'oscuro';
-    return { version: 2, materias: materias, tema: tema, borrador: datos.borrador || null };
+    const progresos = (datos.progresos && typeof datos.progresos === 'object' && !Array.isArray(datos.progresos))
+      ? datos.progresos : undefined;
+    const salida = { version: 2, materias: materias, tema: tema, borrador: datos.borrador || null };
+    if (progresos) salida.progresos = progresos;
+    return salida;
   }
 
   function cargar() {
@@ -165,6 +221,13 @@
     guardarProgreso: guardarProgreso,
     cargarProgreso: cargarProgreso,
     limpiarProgreso: limpiarProgreso,
-    limpiarTodosProgresos: limpiarTodosProgresos
+    limpiarTodosProgresos: limpiarTodosProgresos,
+    setDatos: setDatos,
+    guardarProgresos: guardarProgresos,
+    cargarProgresos: cargarProgresos,
+    guardarNube: guardarNube,
+    cargarNube: cargarNube,
+    exportarContenido: exportarContenido,
+    importarContenido: importarContenido
   };
 })();
