@@ -66,6 +66,20 @@
     return { version: 2, materias: localMaterias() };
   }
 
+  // Escribe el estado. Usa POST (metodo oficial de MantleDB) y, si un filtro de
+  // red/antivirus lo bloquea (405/403), reintenta con PATCH (tambien sobrescribe).
+  async function enviar(cuerpo) {
+    var cab = { 'Content-Type': 'application/json' };
+    var r = await fetch(SYNC_URL, { method: 'POST', headers: cab, body: cuerpo });
+    if (r.status === 405 || r.status === 403 || r.status === 501) {
+      r = await fetch(SYNC_URL, { method: 'PATCH', headers: cab, body: cuerpo });
+      if (!r.ok) throw new Error('POST/PATCH HTTP ' + r.status + ' (tu red o antivirus bloquea la escritura)');
+      return r;
+    }
+    if (!r.ok) throw new Error('POST HTTP ' + r.status);
+    return r;
+  }
+
   // Acepta tanto { datos: { materias } } (formato nuevo) como { materias } (viejo).
   function materiasDe(remoto) {
     if (!remoto) return null;
@@ -96,12 +110,7 @@
       }
 
       var guardadoEn = Date.now();
-      var r = await fetch(SYNC_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guardadoEn: guardadoEn, datos: blob() })
-      });
-      if (!r.ok) throw new Error('POST HTTP ' + r.status);
+      await enviar(JSON.stringify({ guardadoEn: guardadoEn, datos: blob() }));
       syncTs = guardadoEn;
       syncRetries = 0;
       syncPending = false;
@@ -256,16 +265,32 @@
       mensaje = 'Probando\u2026'; renderPanel();
       try {
         var r = await fetch(SYNC_URL, { cache: 'no-store' });
-        if (r.status === 404) mensaje = 'Conexi\u00f3n OK. La nube a\u00fan no tiene datos.';
+        if (r.status === 404) mensaje = 'Lectura OK. La nube a\u00fan no tiene datos.';
         else if (r.ok) {
           var j = await r.json();
           var mm = j && j.datos ? j.datos.materias : (j && j.materias);
-          mensaje = 'Conexi\u00f3n OK. La nube tiene ' + (Array.isArray(mm) ? mm.length : 0) + ' materia(s).';
+          mensaje = 'Lectura OK. La nube tiene ' + (Array.isArray(mm) ? mm.length : 0) + ' materia(s).';
         } else {
           mensaje = 'La nube respondi\u00f3 HTTP ' + r.status + '.';
         }
       } catch (e) {
         mensaje = 'Sin conexi\u00f3n con la nube: ' + e.message;
+      }
+      renderPanel();
+    }));
+    acc.appendChild(botonPanel('Probar escritura', 'sec', async function () {
+      mensaje = 'Probando escritura\u2026'; renderPanel();
+      try {
+        var g = await fetch(SYNC_URL, { cache: 'no-store' });
+        var remoto = g.ok ? await g.json() : null;
+        if (!remoto) {
+          mensaje = 'No hay datos en la nube; guarda algo en la app para probar.';
+        } else {
+          await enviar(JSON.stringify(remoto));
+          mensaje = 'Escritura OK.';
+        }
+      } catch (e) {
+        mensaje = 'Escritura FALL\u00d3: ' + e.message;
       }
       renderPanel();
     }));
