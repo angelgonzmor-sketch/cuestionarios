@@ -50,6 +50,8 @@ header.barra {
 }
 header h1 { font-size: clamp(1.25rem, 2.5vw, 1.75rem); }
 .barra-acciones { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+.nube-estado { align-self: center; color: var(--texto-sec); white-space: nowrap; }
 main { padding: clamp(1rem, 2vw, 1.5rem); }
 .vista.oculto { display: none; }
 .oculto { display: none !important; }
@@ -279,3 +281,40 @@ html[data-tema="claro"] .vista-cab h2 { color: #000 !important; }
 html[data-tema="claro"] .op-res { color: #111 !important; }
 
 .progreso-tag { color: var(--exito); font-weight: 600; }
+
+/* ---------- inicio de sesión y cuenta ---------- */
+.login-pantalla {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--fondo, #111); padding: 16px;
+}
+body.sesion-iniciada .login-pantalla { display: none; }
+.login-caja {
+  width: 100%; max-width: 380px;
+  background: var(--tarjeta-bg, #1c1c1c); border: 1px solid var(--borde, #333);
+  border-radius: 12px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,.4);
+}
+.login-caja h2 { margin: 0 0 4px; }
+.login-sub { margin: 0 0 16px; }
+.login-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+.login-tabs button { flex: 1; }
+.login-form { display: flex; flex-direction: column; gap: 10px; }
+.login-form input[type="email"], .login-form input[type="password"], .login-form input[type="text"] {
+  padding: 10px 12px; border-radius: 8px; border: 1px solid var(--borde, #444);
+  background: var(--campo-bg, #222); color: inherit; font-size: 15px;
+}
+.login-recordar { display: flex; gap: 6px; align-items: center; font-size: 13px; opacity: .85; }
+button.ancho { width: 100%; }
+.login-error { color: #e5535b; font-size: 14px; margin: 8px 0 0; }
+.login-nota { margin-top: 14px; font-size: 12px; }
+
+.cuenta-menu-wrap { position: relative; }
+.cuenta-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 900;
+  min-width: 240px; padding: 12px;
+  background: var(--tarjeta-bg, #1c1c1c); border: 1px solid var(--borde, #333);
+  border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.45);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.cuenta-menu .cuenta-nombre { margin: 0; font-weight: 600; }
+.cuenta-menu p.meta { margin: 0; }

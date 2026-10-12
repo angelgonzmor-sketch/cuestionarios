@@ -119,6 +119,39 @@
 
   function persistir() {
     if (!Store.guardar(datos)) aviso('No se pudo guardar en este navegador.', true);
+    Store.setDatos(datos);
+    sincronizarCuenta();
+  }
+
+  // ---------- cuenta: guarda los datos en la caja fuerte de la cuenta ----------
+  function contenidoDeCuenta() {
+    try { return Store.exportarContenido(true); } catch (e) { return null; }
+  }
+
+  function sincronizarCuenta() {
+    if (!window.Auth || !Auth.estado().usuario) return;
+    const contenido = contenidoDeCuenta();
+    if (contenido === null) return;
+    Auth.persistir(contenido).then(function (r) {
+      pintarEstadoCuenta(r && r.servidor ? 'servidor' : (r && r.ok ? 'local' : 'error'));
+    }).catch(function () {});
+  }
+
+  // Carga los datos de la cuenta (servidor u otra ventana) y refresca la app.
+  function cargarDesdeCuenta(evento) {
+    let json;
+    try { json = JSON.parse((evento && evento.contenido) || ''); } catch (e) { return; }
+    const r = Store.importarContenido(JSON.stringify(json), true);
+    if (!r.ok) return;
+    datos = r.datos;
+    Store.setDatos(datos);
+    materiaActual = null; unidadActual = null; cuestionarioActual = null; sesion = null;
+    aplicarTema(datos.tema || 'oscuro');
+    Store.guardar(datos);
+    limpiarBorrador();
+    pintarMaterias();
+    ver('materias');
+    aviso('Datos actualizados desde tu cuenta (' + (evento && evento.tipo === 'nube' ? 'servidor' : 'otra ventana') + ').');
   }
 
   function ver(nombre) {
@@ -366,20 +399,31 @@
       const div = document.createElement('div');
       div.className = 'tarjeta-cuestionario';
       const enProgreso = Store.cargarProgreso(materiaActual, unidadActual, q.id);
+      const puedeContinuar = Boolean(enProgreso && enProgreso.sesion && sesionValida(enProgreso.sesion));
+      const contestadas = puedeContinuar
+        ? enProgreso.sesion.respuestas.filter(function (r) { return r !== null; }).length : 0;
       div.innerHTML =
         '<div class="izq"><strong>' + esc(q.titulo) + '</strong>' +
         '<span class="meta">' + plural(q.preguntas.length, 'pregunta') +
-        (enProgreso && enProgreso.sesion ? ' · <span class="progreso-tag">En progreso</span>' : '') +
+        (puedeContinuar ? ' · <span class="progreso-tag">En progreso (' + contestadas + '/' +
+          q.preguntas.length + ')</span>' : '') +
         '</span></div>' +
         '<div class="acciones">' +
-        '<button class="pri" data-acc="resolver">' + (enProgreso ? 'Continuar' : 'Resolver') + '</button>' +
+        '<button class="pri" data-acc="resolver">' + (puedeContinuar ? 'Continuar' : 'Resolver') + '</button>' +
+        (puedeContinuar ? '<button class="sec" data-acc="reiniciar">Empezar de nuevo</button>' : '') +
         '<button class="sec" data-acc="editar">Editar</button>' +
         '<button class="sec" data-acc="eliminar">Eliminar</button>' +
         '</div>';
       div.addEventListener('click', function (e) {
         const b = e.target.closest('button[data-acc]');
         if (!b) return;
-        if (b.dataset.acc === 'resolver') { cuestionarioActual = q.id; presentar(enProgreso ? 'continuar' : undefined); }
+        if (b.dataset.acc === 'resolver') { cuestionarioActual = q.id; presentar(puedeContinuar ? 'continuar' : undefined); }
+        else if (b.dataset.acc === 'reiniciar') {
+          Store.limpiarProgreso(materiaActual, unidadActual, q.id);
+          sincronizarNube();
+          cuestionarioActual = q.id;
+          presentar();
+        }
         else if (b.dataset.acc === 'editar') { cuestionarioActual = q.id; abrirEditor(); }
         else {
           if (!confirm('¿Eliminar el cuestionario "' + q.titulo + '"?')) return;
@@ -492,6 +536,7 @@
       cuestionarioActual = nuevo.id;
     }
     persistir();
+    sincronizarNube();
     pintarCuestionarios();
     aviso('Cuestionario guardado.');
   }
@@ -518,7 +563,78 @@ function indiceFuente(s, fuente) {
         sesion: sesion,
         ts: Date.now()
       });
+      sincronizarNube();
     } catch (e) {}
+  }
+
+  // ---------- sincronización entre dispositivos ----------
+  // Equivalente local al guardado de una cuenta de Google: cada cambio se
+  // "sube" a una copia versionada que viaja con Exportar/Importar JSON y que
+  // cualquier otro dispositivo puede traer con "Desde un archivo" o, si ambos
+  // comparten el mismo navegador/equipo, con "Desde este dispositivo".
+  function sincronizarNube() {
+    try {
+      const contenido = Store.exportarContenido(true);
+      const ok = Store.guardarNube(contenido);
+      const ind = $('#estadoNube');
+      if (ind) {
+        ind.textContent = ok ? '☁ Sincronizado' : '☁ Sin espacio para sincronizar';
+        ind.title = ok
+          ? 'Copia lista para transferirse con Exportar/Importar JSON.'
+          : 'El almacenamiento del navegador está lleno; usa Exportar JSON como respaldo.';
+      }
+    } catch (e) {}
+  }
+
+  function estadoNubeAlAbrir() {
+    const ind = $('#estadoNube');
+    if (!ind) return;
+    const crudo = Store.cargarNube();
+    if (!crudo) { ind.textContent = '☁ Sin sincronizar'; return; }
+    try {
+      const j = JSON.parse(crudo);
+      const p = j && j.progresos ? Object.keys(j.progresos).length : 0;
+      ind.textContent = p ? '☁ Copia con ' + plural(p, 'progreso') : '☁ Copia guardada';
+    } catch (e) {
+      ind.textContent = '☁ Copia guardada';
+    }
+  }
+
+  function sesionValida(s) {
+    if (!s || !Array.isArray(s.preguntas) || !s.preguntas.length) return false;
+    if (!Array.isArray(s.respuestas) || s.respuestas.length !== s.preguntas.length) return false;
+    for (let i = 0; i < s.preguntas.length; i++) {
+      const p = s.preguntas[i];
+      if (!p || typeof p.texto !== 'string' || !Array.isArray(p.opciones) || !p.opciones.length) return false;
+      if (typeof p.correcta !== 'number' || p.correcta < 0 || p.correcta >= p.opciones.length) return false;
+      for (let j = 0; j < p.opciones.length; j++) {
+        if (!p.opciones[j] || typeof p.opciones[j].texto !== 'string') return false;
+      }
+    }
+    return true;
+  }
+
+  function continuarSesion(prog, q) {
+    sesion = prog.sesion;
+    if (!Array.isArray(sesion.forzadas) || sesion.forzadas.length !== sesion.preguntas.length) {
+      sesion.forzadas = new Array(sesion.preguntas.length).fill(false);
+    }
+    // Se retoma exactamente donde se dejó: si la pregunta actual ya estaba
+    // respondida, se avanza hasta la primera sin responder.
+    if (typeof sesion.indice !== 'number' || sesion.indice < 0 ||
+        sesion.indice >= sesion.preguntas.length || sesion.respuestas[sesion.indice] !== null) {
+      const siguienteSinResponder = sesion.respuestas.findIndex(function (r) { return r === null; });
+      sesion.indice = siguienteSinResponder === -1 ? 0 : siguienteSinResponder;
+    }
+    $('#tituloPresentar').textContent = q.titulo + ' · continuando';
+    $('#panelResultado').classList.add('oculto');
+    $('#areaPresentar').classList.remove('oculto');
+    pintarPregunta();
+    ver('presentar');
+    guardarProgSesion();
+    const contestadas = sesion.respuestas.filter(function (r) { return r !== null; }).length;
+    aviso('Progreso restaurado: ' + plural(contestadas, 'pregunta') + ' de ' +
+      plural(sesion.preguntas.length, 'pregunta', 'preguntas') + ' contestadas.');
   }
 
   function presentar(fuente) {
@@ -528,19 +644,12 @@ function indiceFuente(s, fuente) {
 
     if (!fuente || fuente === 'continuar') {
       const prog = Store.cargarProgreso(materiaActual, unidadActual, cuestionarioActual);
-      if (prog && prog.sesion && Array.isArray(prog.sesion.preguntas) && prog.sesion.preguntas.length) {
+      if (prog && prog.sesion && sesionValida(prog.sesion)) {
         const quiereContinuar = (fuente === 'continuar')
           ? true
           : confirm('Hay un progreso guardado de este cuestionario. ¿Deseas continuar donde lo dejaste?');
         if (quiereContinuar) {
-          sesion = prog.sesion;
-          if (!Array.isArray(sesion.forzadas)) sesion.forzadas = new Array(sesion.preguntas.length).fill(false);
-          if (typeof sesion.indice !== 'number' || sesion.indice >= sesion.preguntas.length) sesion.indice = 0;
-          $('#tituloPresentar').textContent = q.titulo;
-          $('#panelResultado').classList.add('oculto');
-          $('#areaPresentar').classList.remove('oculto');
-          pintarPregunta();
-          ver('presentar');
+          continuarSesion(prog, q);
           return;
         }
         Store.limpiarProgreso(materiaActual, unidadActual, cuestionarioActual);
@@ -655,6 +764,7 @@ function indiceFuente(s, fuente) {
     sesion = null;
     $('#panelResultado').classList.add('oculto');
     $('#areaPresentar').classList.remove('oculto');
+    sincronizarNube();
     pintarCuestionarios();
   }
 
@@ -664,6 +774,7 @@ function indiceFuente(s, fuente) {
     if (sinResponder && !confirm('Quedan ' + plural(sinResponder, 'pregunta') + ' sin responder. ¿Ver el resultado?')) return;
 
     Store.limpiarProgreso(materiaActual, unidadActual, cuestionarioActual);
+    sincronizarNube();
 
     let acertadas = 0;
     let repasables = 0;
@@ -717,49 +828,237 @@ function indiceFuente(s, fuente) {
     $('#btnVolverLista').addEventListener('click', salirPresentar);
   }
 
-  // ---------- IMPORTAR / EXPORTAR ----------
+  // ---------- IMPORTAR / EXPORTAR / SINCRONIZAR ----------
   function exportar() {
     const c = Store.contar(datos);
-    const blob = new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' });
+    const contenido = Store.exportarContenido(true);
+    const blob = new Blob([contenido], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'cuestionarios-' + new Date().toISOString().slice(0, 10) + '.json';
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    sincronizarNube();
     aviso('Exportado: ' + plural(c.materias, 'materia') + ', ' +
-      plural(c.subcarpetas, 'subcarpeta') + ', ' + plural(c.cuestionarios, 'cuestionario') + '.');
+      plural(c.subcarpetas, 'subcarpeta') + ', ' + plural(c.cuestionarios, 'cuestionario') +
+      ' y el progreso en curso.');
   }
 
   function importar(archivo) {
     const lector = new FileReader();
-    lector.onload = function () {
-      let json;
-      try {
-        json = JSON.parse(lector.result);
-      } catch (e) {
-        return aviso('El archivo no es un JSON válido.', true);
-      }
-      const limpio = Store.normalizar(json);
-      if (!limpio) return aviso('El archivo no tiene la estructura de cuestionarios.', true);
-
-      const c = Store.contar(limpio);
-      if (!confirm('Se importarán ' + plural(c.materias, 'materia') + ', ' +
-        plural(c.subcarpetas, 'subcarpeta') + ' y ' + plural(c.cuestionarios, 'cuestionario') +
-        ', y se reemplazarán los datos actuales. ¿Continuar?')) return;
-
-      datos = limpio;
-      materiaActual = null;
-      unidadActual = null;
-      cuestionarioActual = null;
-      Store.limpiarTodosProgresos();
-      persistir();
-      pintarMaterias();
-      limpiarBorrador();
-      ver('materias');
-      aviso('Importado: ' + plural(c.materias, 'materia') + ', ' +
-        plural(c.subcarpetas, 'subcarpeta') + ', ' + plural(c.cuestionarios, 'cuestionario') + '.');
-    };
+    lector.onload = function () { pedirConfirmacionSincronia(lector.result, 'el archivo importado'); };
     lector.readAsText(archivo);
+  }
+
+  function importarDesdeNube() {
+    const crudo = Store.cargarNube();
+    if (!crudo) {
+      return aviso('Aún no hay copia sincronizada en este navegador. Exporta el JSON desde el otro dispositivo e impórtalo.', true);
+    }
+    pedirConfirmacionSincronia(crudo, 'la copia sincronizada de este navegador');
+  }
+
+  function pedirConfirmacionSincronia(texto, origen) {
+    let json;
+    try {
+      json = JSON.parse(texto);
+    } catch (e) {
+      return aviso('El contenido de ' + origen + ' no es un JSON válido.', true);
+    }
+    const prueba = Store.normalizar(json);
+    if (!prueba) return aviso('El contenido de ' + origen + ' no tiene la estructura de cuestionarios.', true);
+    const c = Store.contar(prueba);
+    const nProg = (json && json.progresos && typeof json.progresos === 'object')
+      ? Object.keys(json.progresos).length : 0;
+    if (!confirm('Se sincronizarán con ' + origen + ': ' +
+      plural(c.materias, 'materia') + ', ' + plural(c.subcarpetas, 'subcarpeta') +
+      ' y ' + plural(c.cuestionarios, 'cuestionario') +
+      (nProg ? ', además de ' + plural(nProg, 'progreso') + ' en curso' : '') +
+      '. Se reemplazarán los datos actuales de este dispositivo. ¿Continuar?')) return;
+
+    const r = Store.importarContenido(texto, true);
+    if (!r.ok) return aviso(r.error, true);
+    datos = r.datos;
+    Store.setDatos(datos);
+    materiaActual = null;
+    unidadActual = null;
+    cuestionarioActual = null;
+    sesion = null;
+    aplicarTema(datos.tema || 'oscuro');
+    persistir();
+    sincronizarNube();
+    pintarMaterias();
+    limpiarBorrador();
+    ver('materias');
+    aviso('Sincronizado con ' + origen + '.');
+  }
+
+  // ---------- ARRANQUE CON INICIO DE SESIÓN ----------
+  function pintarEstadoCuenta(como) {
+    const est = window.Auth ? Auth.estado() : { usuario: null, servidor: '' };
+    const btn = $('#btnCuenta');
+    if (btn) {
+      btn.innerHTML = est.usuario
+        ? '&#128100; ' + esc(est.usuario.nombre.split(' ')[0])
+        : '&#128100; Entrar';
+    }
+    const n = $('#cuentaNombre'); if (n) n.textContent = est.usuario ? est.usuario.nombre : '';
+    const c = $('#cuentaCorreo'); if (c) c.textContent = est.usuario ? est.usuario.correo : '';
+    const s = $('#cuentaEstadoSync');
+    if (s) {
+      if (!est.usuario) s.textContent = 'Sin sesión iniciada.';
+      else if (como === 'servidor' || est.servidor) s.textContent = '☁ Sincronizado con el servidor. Tus datos están disponibles en todos tus dispositivos con esta cuenta.';
+      else s.textContent = '☁ Guardado en la caja fuerte de tu cuenta en este navegador. Para sincronizar entre dispositivos distintos, configura un servidor de sincronización.';
+    }
+    const ind = $('#estadoNube');
+    if (ind && est.usuario) {
+      ind.textContent = como === 'servidor' ? '☁ En la nube' : (como === 'error' ? '☁ Sin sincronizar' : '☁ Copia de cuenta');
+    }
+  }
+
+  function mostrarLoginError(msg) {
+    const e = $('#loginError');
+    if (!e) return;
+    e.textContent = msg || '';
+    e.classList.toggle('oculto', !msg);
+  }
+
+  function trasLogin(usuario, password) {
+    document.body.classList.add('sesion-iniciada');
+    return Auth.cargarDatosDeCuenta().then(function (contenido) {
+      if (contenido) {
+        const r = Store.importarContenido(contenido, true);
+        if (r.ok) {
+          datos = r.datos;
+          Store.setDatos(datos);
+          aplicarTema(datos.tema || 'oscuro');
+          Store.guardar(datos);
+        }
+      } else {
+        // Cuenta nueva: se sube el contenido actual de este dispositivo.
+        sincronizarCuenta();
+      }
+      materiaActual = null; unidadActual = null; cuestionarioActual = null; sesion = null;
+      limpiarBorrador();
+      estadoNubeAlAbrir();
+      sincronizarNube();
+      pintarMaterias();
+      ver('materias');
+      pintarEstadoCuenta(Auth.estado().servidor ? 'servidor' : 'local');
+      aviso('Hola, ' + usuario.nombre + '. Sesión iniciada.');
+    });
+  }
+
+  function cerrarSesionApp() {
+    Auth.cerrarSesion();
+    document.body.classList.remove('sesion-iniciada');
+    $('#menuCuenta').classList.add('oculto');
+    pintarEstadoCuenta();
+    aviso('Sesión cerrada. Tu progreso queda guardado en tu cuenta.');
+  }
+
+  function iniciarArranque() {
+    // Emparejamiento rápido por enlace: index.html?sync=http://IP:PUERTO
+    try {
+      const q = new URLSearchParams(location.search);
+      const url = q.get('sync') || q.get('servidor');
+      if (url) {
+        Auth.configurarServidor(url).then(function () {
+          aviso('Servidor de sincronización configurado.');
+        }).catch(function () {});
+      }
+    } catch (e) {}
+
+    const tabs = [$('#tabLogin'), $('#tabRegistro')];
+    const forms = [$('#formLogin'), $('#formRegistro')];
+    function cambiarTab(i) {
+      tabs.forEach(function (t, j) { t.className = j === i ? 'pri' : 'sec'; });
+      forms.forEach(function (f, j) { f.classList.toggle('oculto', j !== i); });
+      mostrarLoginError('');
+    }
+    $('#tabLogin').addEventListener('click', function () { cambiarTab(0); });
+    $('#tabRegistro').addEventListener('click', function () { cambiarTab(1); });
+
+    $('#formLogin').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      mostrarLoginError('');
+      const correo = $('#loginCorreo').value;
+      const pass = $('#loginPassword').value;
+      Auth.iniciar(correo, pass).then(function (u) {
+        if (!$('#loginRecordar').checked) { try { localStorage.removeItem('sesion.actual.v1'); } catch (e) {} }
+        return trasLogin(u, $('#loginRecordar').checked ? pass : '');
+      }).catch(function (err) { mostrarLoginError(err.message || 'No se pudo iniciar sesión.'); });
+    });
+
+    $('#formRegistro').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      mostrarLoginError('');
+      const nombre = $('#regNombre').value;
+      const correo = $('#regCorreo').value;
+      const pass = $('#regPassword').value;
+      Auth.registrar(nombre, correo, pass).then(function (u) {
+        return Auth.iniciar(u.correo, pass).then(function (u2) { return trasLogin(u2, pass); });
+      }).catch(function (err) { mostrarLoginError(err.message || 'No se pudo crear la cuenta.'); });
+    });
+
+    // Menú de cuenta
+    const btnCuenta = $('#btnCuenta');
+    const menu = $('#menuCuenta');
+    btnCuenta.addEventListener('click', function (e) {
+      e.stopPropagation();
+      menu.classList.toggle('oculto');
+      pintarEstadoCuenta();
+    });
+    document.addEventListener('click', function (e) {
+      if (!menu.classList.contains('oculto') && !menu.contains(e.target)) menu.classList.add('oculto');
+    });
+    $('#btnCerrarSesion').addEventListener('click', cerrarSesionApp);
+    $('#btnAjustesSync').addEventListener('click', function () {
+      const actual = localStorage.getItem('sync.servidor.v1') || localStorage.getItem('sync.emparejado.v1') || '';
+      const url = prompt(
+        'Dirección del servidor de sincronización (déjalo vacío para usar solo este navegador).\n' +
+        'Ejemplo: http://192.168.1.10:8787 — se arranca con "node js/servidor-sync.js" en una máquina de tu red.',
+        actual);
+      if (url === null) return;
+      Auth.configurarServidor(url).then(function (ok) {
+        menu.classList.add('oculto');
+        if (url.trim()) {
+          aviso(ok ? 'Servidor de sincronización conectado. Los datos viajarán entre tus dispositivos.' : 'Servidor conectado sin verificación.');
+          sincronizarCuenta();
+        } else {
+          aviso('Se quitó el servidor de sincronización; los datos quedan en este navegador.');
+        }
+      }).catch(function (err) { aviso(err.message, true); });
+    });
+
+    // Cambios provenientes de otra ventana o del servidor (misma cuenta)
+    Auth.suscribir(function (ev) {
+      if (ev.tipo === 'cerrar') return;
+      cargarDesdeCuenta(ev);
+    });
+
+    Store.setDatos(datos);
+    aplicarTema(datos.tema || 'oscuro');
+    limpiarBorrador();
+    pintarEstadoCuenta();
+
+    const guardada = Auth.sesionGuardada();
+    if (guardada) {
+      Auth.iniciarConSesionGuardada().then(function (u) {
+        if (u) return trasLogin(u, guardada.password);
+        document.body.classList.remove('sesion-iniciada');
+        estadoNubeAlAbrir();
+        sincronizarNube();
+        pintarMaterias();
+        ver('materias');
+      });
+    } else {
+      document.body.classList.remove('sesion-iniciada');
+      estadoNubeAlAbrir();
+      sincronizarNube();
+      pintarMaterias();
+      ver('materias');
+    }
   }
 
   // ---------- ARRANQUE ----------
@@ -803,14 +1102,22 @@ function indiceFuente(s, fuente) {
     if (e.target.files[0]) importar(e.target.files[0]);
     e.target.value = '';
   });
+  const btnNube = $('#btnNube');
+  if (btnNube) btnNube.addEventListener('click', importarDesdeNube);
 
   window.addEventListener('beforeunload', function () {
     clearTimeout(window.__tDraft);
     if (editorVisible()) guardarBorrador();
   });
 
-  aplicarTema(datos.tema || 'oscuro');
-  limpiarBorrador();
-  pintarMaterias();
-  ver('materias');
+  // Arranque diferido: los datos de la cuenta se cargan al iniciar sesión.
+  document.body.classList.remove('sesion-iniciada');
+  iniciarArranque();
+
+  // Exposición para pruebas automatizadas (no afecta el uso normal).
+  window.__test = {
+    presentar: presentar,
+    sesion: function () { return sesion; },
+    setQ: function (mid, uid, qid) { materiaActual = mid; unidadActual = uid; cuestionarioActual = qid; }
+  };
 })();
