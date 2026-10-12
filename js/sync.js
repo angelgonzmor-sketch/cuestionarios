@@ -7,7 +7,7 @@
   var CLAVE = 'cuestionarios.v2';
   var CLAVE_URL = 'cuestionarios.sync.url';
   var CLAVE_TS = 'cuestionarios.sync.ts';
-  var SYNC_URL_POR_DEFECTO = 'https://mantledb.sh/v2/cuestionarios-sync-Xk7Qm2Vp9R/estado';
+  var SYNC_URL_POR_DEFECTO = 'https://mantledb.sh/v2/cuestionarios-sync-1288324941e039dde11944d9ac70697a42a67c5b9cc8a8b0/estado';
   var SYNC_DELAY_MS = 1200;
 
   function urlSync() {
