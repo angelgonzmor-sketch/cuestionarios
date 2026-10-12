@@ -7,6 +7,7 @@
   var CLAVE = 'cuestionarios.v2';
   var CLAVE_URL = 'cuestionarios.sync.url';
   var CLAVE_TS = 'cuestionarios.sync.ts';
+  var CLAVE_TS_URL = 'cuestionarios.sync.tsUrl';
   var SYNC_URL_POR_DEFECTO = 'https://mantledb.sh/v2/cuestionarios-sync-1288324941e039dde11944d9ac70697a42a67c5b9cc8a8b0/estado';
   var SYNC_DELAY_MS = 1200;
 
@@ -16,8 +17,26 @@
   }
   var SYNC_URL = urlSync();
 
-  var syncTs = parseInt(localStorage.getItem(CLAVE_TS) || '0', 10) || 0;
+  // El timestamp guardado solo vale si pertenece a la misma clave. Si cambio la
+  // clave, se reinicia para no bloquear la primera subida a la nube nueva.
+  function leerTs() {
+    try {
+      var ts = parseInt(localStorage.getItem(CLAVE_TS) || '0', 10) || 0;
+      var u = localStorage.getItem(CLAVE_TS_URL);
+      if (u && u !== SYNC_URL) return 0;
+      return ts;
+    } catch (e) { return 0; }
+  }
+  function guardarTs(ts) {
+    try {
+      localStorage.setItem(CLAVE_TS, String(ts));
+      localStorage.setItem(CLAVE_TS_URL, SYNC_URL);
+    } catch (e) {}
+  }
+
+  var syncTs = leerTs();
   var syncTimer = null, syncRetries = 0, syncPending = false;
+  var ultimoError = '';
 
   function onlineOk() {
     return typeof navigator === 'undefined' || typeof navigator.onLine !== 'boolean'
@@ -63,9 +82,9 @@
   }
 
   async function pushState() {
-    if (!onlineOk()) { setSyncStatus('\u26a0 Sin conexi\u00f3n'); return; }
+    if (!onlineOk()) { setSyncStatus('\u26a0 Sin conexi\u00f3n'); ultimoError = 'Sin red (navigator.onLine = false).'; return; }
     try {
-      var cur = await fetch(SYNC_URL, { cache: 'no-store' });
+      var cur = await fetch(SYNC_URL, { cache: 'no-store' }).catch(function (e) { throw new Error('GET ' + e.message); });
       var remoto = cur.ok ? await cur.json() : null;
       var tsRemote = (remoto && remoto.guardadoEn) || 0;
       var remotas = materiasDe(remoto);
@@ -82,14 +101,16 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ guardadoEn: guardadoEn, datos: blob() })
       });
-      if (!r.ok) throw new Error(String(r.status));
+      if (!r.ok) throw new Error('POST HTTP ' + r.status);
       syncTs = guardadoEn;
       syncRetries = 0;
       syncPending = false;
-      try { localStorage.setItem(CLAVE_TS, String(syncTs)); } catch (e) {}
+      ultimoError = '';
+      guardarTs(syncTs);
       setSyncStatus('\u2713 Sincronizado');
     } catch (e) {
       syncRetries++;
+      ultimoError = e.message;
       setSyncStatus('\u26a0 Sin conexi\u00f3n');
       if (syncRetries <= 3) syncTimer = setTimeout(function () { schedule(true); }, 8000);
     }
@@ -97,13 +118,14 @@
 
   // ---------- bajada ----------
   async function pullSync() {
-    if (!onlineOk()) return;
+    if (!onlineOk()) { ultimoError = 'Sin red.'; return; }
     try {
       var r = await fetch(SYNC_URL, { cache: 'no-store' });
-      if (!r.ok) throw new Error(String(r.status));
-      var remoto = await r.json();
+      if (!r.ok && r.status !== 404) throw new Error('GET HTTP ' + r.status);
+      var remoto = r.ok ? await r.json() : null;
       var tsRemote = (remoto && remoto.guardadoEn) || 0;
       var remotas = materiasDe(remoto);
+      ultimoError = '';
 
       if (tsRemote > syncTs && remotas && remotas.length > 0) {
         adoptar(remotas, tsRemote);
@@ -114,8 +136,9 @@
         setSyncStatus('\u2713 Sincronizado');
       }
     } catch (e) {
-      if (syncTs === 0 && !localStorage.getItem(CLAVE)) return;
-      if (syncTs === 0) schedule(true); else setSyncStatus('');
+      ultimoError = e.message;
+      if (syncTs === 0 && localMaterias().length > 0) schedule(true);
+      else setSyncStatus('');
     }
   }
 
@@ -131,7 +154,7 @@
     try { localStorage.setItem(CLAVE, JSON.stringify(salida)); } catch (e) {}
     syncTs = ts;
     syncPending = false;
-    try { localStorage.setItem(CLAVE_TS, String(ts)); } catch (e) {}
+    guardarTs(ts);
     if (window.AppSync && typeof AppSync.refrescar === 'function') AppSync.refrescar();
     else location.reload();
   }
@@ -173,7 +196,7 @@
     overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:9999;';
     caja = document.createElement('div');
-    caja.style.cssText = 'background:var(--fondo,#1b1b1f);color:var(--texto,#eee);border:1px solid rgba(128,128,128,.4);border-radius:12px;padding:20px;max-width:400px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.5);font:14px/1.4 system-ui,sans-serif;';
+    caja.style.cssText = 'background:var(--fondo,#1b1b1f);color:var(--texto,#eee);border:1px solid rgba(128,128,128,.4);border-radius:12px;padding:20px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.5);font:14px/1.4 system-ui,sans-serif;';
     overlay.appendChild(caja);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) cerrarPanel(); });
     document.body.appendChild(overlay);
@@ -210,11 +233,15 @@
     caja.appendChild(elem('p', 'margin:0 0 8px;font-size:12px;opacity:.8;', 'El estado se guarda en una nube p\u00fablica (MantleDB) y todos tus dispositivos comparten la \u00faltima versi\u00f3n. No depende de este ordenador.'));
 
     var estadoTxt = document.getElementById('sync-status');
-    caja.appendChild(elem('p', 'margin:0 0 8px;font-size:12px;',
+    caja.appendChild(elem('p', 'margin:0 0 4px;font-size:12px;',
       'Estado: ' + (estadoTxt && estadoTxt.textContent ? estadoTxt.textContent : (syncTs ? '\u2713 Sincronizado' : 'sin datos a\u00fan')) +
       (syncTs ? ' \u00b7 ' + new Date(syncTs).toLocaleString() : '')));
 
-    caja.appendChild(elem('p', 'margin:0 0 4px;font-size:12px;opacity:.7;word-break:break-all;', 'Clave: ' + SYNC_URL));
+    caja.appendChild(elem('p', 'margin:0 0 4px;font-size:12px;opacity:.75;', 'Materias en este dispositivo: ' + localMaterias().length));
+
+    if (ultimoError) caja.appendChild(elem('p', 'margin:0 0 4px;font-size:12px;color:#e5484d;', 'Último error: ' + ultimoError));
+
+    caja.appendChild(elem('p', 'margin:6px 0 4px;font-size:12px;opacity:.7;word-break:break-all;', 'Clave: ' + SYNC_URL));
 
     var acc = elem('div', 'margin-top:8px;');
     acc.appendChild(botonPanel('Forzar sincronizaci\u00f3n', 'pri', function () {
@@ -225,10 +252,27 @@
         renderPanel();
       });
     }));
+    acc.appendChild(botonPanel('Probar conexi\u00f3n', 'sec', async function () {
+      mensaje = 'Probando\u2026'; renderPanel();
+      try {
+        var r = await fetch(SYNC_URL, { cache: 'no-store' });
+        if (r.status === 404) mensaje = 'Conexi\u00f3n OK. La nube a\u00fan no tiene datos.';
+        else if (r.ok) {
+          var j = await r.json();
+          var mm = j && j.datos ? j.datos.materias : (j && j.materias);
+          mensaje = 'Conexi\u00f3n OK. La nube tiene ' + (Array.isArray(mm) ? mm.length : 0) + ' materia(s).';
+        } else {
+          mensaje = 'La nube respondi\u00f3 HTTP ' + r.status + '.';
+        }
+      } catch (e) {
+        mensaje = 'Sin conexi\u00f3n con la nube: ' + e.message;
+      }
+      renderPanel();
+    }));
     acc.appendChild(botonPanel('Cerrar', 'sec', cerrarPanel));
     caja.appendChild(acc);
 
-    caja.appendChild(elem('p', 'margin:14px 0 4px;font-size:12px;opacity:.7;', 'Cambiar clave (opcional, si quieres tu propia nube):'));
+    caja.appendChild(elem('p', 'margin:14px 0 4px;font-size:12px;opacity:.7;', 'Cambiar clave (debe ser la misma en todos tus dispositivos):'));
     var inp = elem('input', 'width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:1px solid rgba(128,128,128,.5);background:transparent;color:inherit;');
     inp.type = 'text';
     inp.value = SYNC_URL;
@@ -238,17 +282,13 @@
       var v = (inp.value || '').trim();
       if (!v) return;
       try { localStorage.setItem(CLAVE_URL, v); } catch (e) {}
-      SYNC_URL = v;
-      syncTs = 0;
-      try { localStorage.setItem(CLAVE_TS, '0'); } catch (e) {}
+      SYNC_URL = v; syncTs = 0; guardarTs(0);
       cerrarPanel();
       pullSync().then(function () { if (!syncPending) schedule(true); });
     }));
     acc2.appendChild(botonPanel('Clave por defecto', 'sec', function () {
       try { localStorage.removeItem(CLAVE_URL); } catch (e) {}
-      SYNC_URL = SYNC_URL_POR_DEFECTO;
-      syncTs = 0;
-      try { localStorage.setItem(CLAVE_TS, '0'); } catch (e) {}
+      SYNC_URL = SYNC_URL_POR_DEFECTO; syncTs = 0; guardarTs(0);
       cerrarPanel();
       pullSync();
     }));
@@ -282,5 +322,9 @@
     });
   }
 
-  init();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();
