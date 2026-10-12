@@ -50,6 +50,8 @@ header.barra {
 }
 header h1 { font-size: clamp(1.25rem, 2.5vw, 1.75rem); }
 .barra-acciones { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+.nube-estado { align-self: center; color: var(--texto-sec); white-space: nowrap; }
 main { padding: clamp(1rem, 2vw, 1.5rem); }
 .vista.oculto { display: none; }
 .oculto { display: none !important; }
