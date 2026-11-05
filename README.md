@@ -13,6 +13,7 @@ index.html
 css/estilos.css
 js/parser.js   convierte el texto pegado en preguntas
 js/store.js    guardado en el navegador e importación/exportación
+js/sync.js     sincronización entre dispositivos con MantleDB
 js/app.js      materias, subcarpetas, edición y presentación
 ```
 
@@ -62,8 +63,14 @@ descarta y se reporta con su número de línea, sin perder el resto del texto.
 
 ## Dónde se guardan los datos
 
-En el `localStorage` del navegador, en la clave `cuestionarios.v2`. Eso implica
-que los cuestionarios son locales a ese navegador y a ese equipo.
+En el `localStorage` del navegador, en la clave `cuestionarios.v2` (materias,
+tema y borrador) y en `cuestionarios.progreso.v1` (avance de cada cuestionario).
+
+Además, `js/sync.js` sincroniza automáticamente las materias y el progreso entre
+dispositivos usando una nube pública de MantleDB. La sincronización ocurre al
+abrir la página, al guardar cambios y al cerrarla; la última escritura gana. No
+hay botón ni panel: el indicador junto a los botones muestra `Subiendo…`,
+`Sincronizado` o `Sin conexión`.
 
 Usa **Exportar JSON** para bajar un respaldo y **Importar JSON** para restaurarlo
 o pasarlo a otro equipo. Los archivos exportados por versiones anteriores del
@@ -110,6 +117,7 @@ formato se migran solos a una subcarpeta llamada `General`.
 Doble clic en `publicar.bat` (o `.\publicar.ps1` en PowerShell) sube el proyecto
 a GitHub y activa GitHub Pages. Necesitas `gh auth login` una sola vez.
 
-Los cuestionarios de cada visitante se guardan en su propio navegador, así que la
-página publicada sirve para que cualquiera arme y resuelva sus cuestionarios, pero
-no comparte los datos entre dispositivos.
+Los cuestionarios se guardan en el navegador de cada visitante y se sincronizan
+entre dispositivos a través de la clave fija de MantleDB definida en
+`js/sync.js`. Todos los dispositivos que abran la página comparten esas materias
+y ese progreso (la última escritura gana).

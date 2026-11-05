@@ -156,12 +156,15 @@
 
   return {
     CLAVE: CLAVE,
+    CLAVE_PROG: CLAVE_PROG,
     cargar: cargar,
     guardar: guardar,
     vacio: vacio,
     normalizar: normalizar,
     contar: contar,
     id: id,
+    cargarProgresos: cargarProgresos,
+    guardarProgresos: guardarProgresos,
     guardarProgreso: guardarProgreso,
     cargarProgreso: cargarProgreso,
     limpiarProgreso: limpiarProgreso,
