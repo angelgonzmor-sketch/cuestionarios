@@ -71,8 +71,9 @@ tema y borrador) y en `cuestionarios.progreso.v1` (avance de cada cuestionario).
 
 Además, `js/sync.js` sincroniza automáticamente las materias y el progreso entre
 dispositivos usando una nube pública de MantleDB. La sincronización ocurre al
-abrir la página, al guardar cambios y al cerrarla; la última escritura gana. No
-hay botón ni panel: el indicador junto a los botones muestra `Subiendo…`,
+abrir la página, al guardar cambios y al cerrarla; la última escritura gana. Si
+se corta la conexión, reintenta al recuperarla y al volver a la pestaña. No hay
+botón ni panel: el indicador junto a los botones muestra `Subiendo…`,
 `Sincronizado` o `Sin conexión`.
 
 Usa **Exportar JSON** para bajar un respaldo y **Importar JSON** para restaurarlo

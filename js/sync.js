@@ -3,13 +3,15 @@
 
   // ---------- Sincronizacion entre dispositivos ----------
   // Mismo patron que "Creador de horarios": la nube publica (MantleDB) guarda
-  // { guardadoEn, estado: { version, materias, progreso } } y gana la ultima
-  // escritura. Se sincroniza al abrir, al guardar cambios y al cerrar la pagina.
-  // Sin panel, sin boton y sin sondeo periodico.
+  // { guardadoEn, datos: { version, materias, progreso } } y gana la ultima
+  // escritura. Se conserva el campo "datos" (en vez de "estado") para que las
+  // versiones antiguas de la app, aun en cache, tambien puedan leer las materias.
+  // Se sincroniza al abrir, al guardar cambios y al cerrar la pagina.
 
   var CLAVE_DATOS = 'cuestionarios.v2';
   var CLAVE_PROG = 'cuestionarios.progreso.v1';
   var CLAVE_TS = 'cuestionarios.sync.ts';
+  var CLAVE_TS_URL = 'cuestionarios.sync.tsUrl';
   var SYNC_URL = 'https://mantledb.sh/v2/cuestionarios-sync-1288324941e039dde11944d9ac70697a42a67c5b9cc8a8b0/estado';
   var SYNC_DELAY_MS = 1200;
 
@@ -17,17 +19,28 @@
   var pushTimer = null, reintentos = 0, cambiosPendientes = false;
 
   function leerTs() {
-    try { return parseInt(localStorage.getItem(CLAVE_TS) || '0', 10) || 0; }
-    catch (e) { return 0; }
+    try {
+      var ts = parseInt(localStorage.getItem(CLAVE_TS) || '0', 10) || 0;
+      // Si el timestamp viene de otra clave/nube, no es comparable: se ignora.
+      var u = localStorage.getItem(CLAVE_TS_URL);
+      if (u && u !== SYNC_URL) return 0;
+      return ts;
+    } catch (e) { return 0; }
   }
 
   function guardarTs(ts) {
-    try { localStorage.setItem(CLAVE_TS, String(ts)); } catch (e) {}
+    try {
+      localStorage.setItem(CLAVE_TS, String(ts));
+      localStorage.setItem(CLAVE_TS_URL, SYNC_URL);
+    } catch (e) {}
   }
 
-  function setSyncStatus(txt) {
+  function setSyncStatus(txt, detalle) {
     var el = document.getElementById('sync-status');
-    if (el) el.textContent = txt || '';
+    if (el) {
+      el.textContent = txt || '';
+      el.title = detalle || '';
+    }
   }
 
   function onlineOk() {
@@ -63,35 +76,42 @@
     };
   }
 
-  // Acepta el formato nuevo { estado: { materias, progreso } } y el viejo
-  // { datos: { materias } } para no romper con lo que ya hubiera en la nube.
+  // Acepta el formato actual { datos: { materias, progreso } }, el intermedio
+  // { estado: { materias, progreso } } y el viejo { datos: { materias } }.
+  // "progreso" queda en null si el remoto no lo trae (version antigua), para
+  // no borrar el progreso local en ese caso.
   function estadoDe(remoto) {
     if (!remoto) return null;
-    var e = remoto.estado || remoto.datos || null;
+    var e = remoto.datos || remoto.estado || null;
     if (!e || typeof e !== 'object') return null;
     return {
       materias: Array.isArray(e.materias) ? e.materias : [],
-      progreso: (e.progreso && typeof e.progreso === 'object') ? e.progreso : {}
+      progreso: (e.progreso && typeof e.progreso === 'object') ? e.progreso : null
     };
   }
 
   function tieneContenido(estado) {
-    return !!(estado && (estado.materias.length > 0 || Object.keys(estado.progreso).length > 0));
+    return !!(estado && (estado.materias.length > 0 ||
+      (estado.progreso && Object.keys(estado.progreso).length > 0)));
   }
 
-  // POST es el metodo normal de MantleDB. Si la red/antivirus lo bloquea
-  // (405/403/501), se reintenta con PATCH, que tambien sobrescribe.
-  function enviar(cuerpo) {
+  // POST es el metodo normal de MantleDB. Si la red, un antivirus o una
+  // extension lo bloquea (sin respuesta o con error HTTP), se reintenta con
+  // PATCH, que tambien sobrescribe.
+  function enviar(cuerpo, cuerpoPatch) {
     var cab = { 'Content-Type': 'application/json' };
-    return fetch(SYNC_URL, { method: 'POST', headers: cab, body: cuerpo }).then(function (r) {
-      if (r.status === 405 || r.status === 403 || r.status === 501) {
-        return fetch(SYNC_URL, { method: 'PATCH', headers: cab, body: cuerpo }).then(function (r2) {
-          if (!r2.ok) throw new Error('POST/PATCH HTTP ' + r2.status);
-          return r2;
-        });
-      }
-      if (!r.ok) throw new Error('POST HTTP ' + r.status);
-      return r;
+    function intento(metodo, datos) {
+      return fetch(SYNC_URL, { method: metodo, headers: cab, body: datos }).then(function (r) {
+        if (!r.ok) throw new Error(metodo + ' HTTP ' + r.status);
+        return r;
+      });
+    }
+    return intento('POST', cuerpo).catch(function (e1) {
+      // MantleDB fusiona el PATCH con lo que ya hubiera. Se envia tambien
+      // "estado" (mismo contenido) para que ningun cliente lea datos viejos.
+      return intento('PATCH', cuerpoPatch || cuerpo).catch(function (e2) {
+        throw new Error(e1.message + ' / ' + e2.message);
+      });
     });
   }
 
@@ -103,18 +123,21 @@
   }
 
   function subirEstado() {
-    if (!onlineOk()) { setSyncStatus('\u26a0 Sin conexi\u00f3n'); return Promise.resolve(); }
+    if (!onlineOk()) { setSyncStatus('\u26a0 Sin conexi\u00f3n', 'navigator.onLine = false'); return Promise.resolve(); }
     var guardadoEn = Date.now();
-    var cuerpo = JSON.stringify({ guardadoEn: guardadoEn, estado: estadoLocal() });
-    return enviar(cuerpo).then(function () {
+    var est = estadoLocal();
+    var estado = { version: 2, materias: est.materias, progreso: est.progreso };
+    var cuerpo = JSON.stringify({ guardadoEn: guardadoEn, datos: estado });
+    var cuerpoPatch = JSON.stringify({ guardadoEn: guardadoEn, datos: estado, estado: estado });
+    return enviar(cuerpo, cuerpoPatch).then(function () {
       syncTs = guardadoEn;
       reintentos = 0;
       cambiosPendientes = false;
       guardarTs(syncTs);
       setSyncStatus('\u2713 Sincronizado');
-    }).catch(function () {
+    }).catch(function (e) {
       reintentos++;
-      setSyncStatus('\u26a0 Sin conexi\u00f3n');
+      setSyncStatus('\u26a0 Sin conexi\u00f3n', e && e.message ? e.message : '');
       if (reintentos <= 3) pushTimer = setTimeout(function () { programarPush(true); }, 8000);
     });
   }
@@ -129,8 +152,10 @@
     };
     try { localStorage.setItem(CLAVE_DATOS, JSON.stringify(salida)); } catch (e) {}
     try {
-      if (Object.keys(estado.progreso).length > 0) {
-        localStorage.setItem(CLAVE_PROG, JSON.stringify(estado.progreso));
+      // Si el remoto no trae progreso (version antigua), conserva el local.
+      var prog = estado.progreso === null ? progresoLocal() : estado.progreso;
+      if (prog && Object.keys(prog).length > 0) {
+        localStorage.setItem(CLAVE_PROG, JSON.stringify(prog));
       } else {
         localStorage.removeItem(CLAVE_PROG);
       }
@@ -152,7 +177,9 @@
       var tsRemoto = (remoto && remoto.guardadoEn) || 0;
       var localConDatos = tieneContenido(estadoLocal());
 
-      if (estado && estado.materias.length > 0 && tsRemoto > syncTs) {
+      // Si este dispositivo esta vacio, siempre adopta lo que haya en la nube,
+      // aunque su timestamp local sea mayor (evita borrar la nube por error).
+      if (estado && estado.materias.length > 0 && (tsRemoto > syncTs || !localConDatos)) {
         adoptar(estado, tsRemoto);
         setSyncStatus('\u2713 Sincronizado');
       } else if (cambiosPendientes || tsRemoto < syncTs ||
@@ -161,9 +188,10 @@
       } else {
         setSyncStatus('\u2713 Sincronizado');
       }
-    }).catch(function () {
-      if (syncTs === 0 && tieneContenido(estadoLocal())) programarPush(true);
-      else setSyncStatus('');
+    }).catch(function (e) {
+      setSyncStatus('', e && e.message ? e.message : '');
+      // Aunque falle la lectura, si hay datos locales conviene intentar subirlos.
+      if (tieneContenido(estadoLocal())) programarPush(true);
     });
   }
 
@@ -185,13 +213,21 @@
     enganchar();
     setSyncStatus(syncTs ? '\u2713 Sincronizado' : '');
     iniciarSincronizacion();
+    addEventListener('online', function () { iniciarSincronizacion(); });
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) iniciarSincronizacion();
+    });
     addEventListener('beforeunload', function () {
       if (!cambiosPendientes) return;
       try {
+        var est = estadoLocal();
         fetch(SYNC_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ guardadoEn: Date.now(), estado: estadoLocal() }),
+          body: JSON.stringify({
+            guardadoEn: Date.now(),
+            datos: { version: 2, materias: est.materias, progreso: est.progreso }
+          }),
           keepalive: true
         });
       } catch (e) {}
