@@ -365,14 +365,18 @@
     u.cuestionarios.forEach(function (q) {
       const div = document.createElement('div');
       div.className = 'tarjeta-cuestionario';
-      const enProgreso = Store.cargarProgreso(materiaActual, unidadActual, q.id);
+      const prog = Store.cargarProgreso(materiaActual, unidadActual, q.id);
+      const enProgreso = Boolean(prog && prog.sesion);
+      const pendientes = (prog && Array.isArray(prog.pendientes)) ? prog.pendientes.length : 0;
       div.innerHTML =
         '<div class="izq"><strong>' + esc(q.titulo) + '</strong>' +
         '<span class="meta">' + plural(q.preguntas.length, 'pregunta') +
-        (enProgreso && enProgreso.sesion ? ' · <span class="progreso-tag">En progreso</span>' : '') +
+        (enProgreso ? ' · <span class="progreso-tag">En progreso</span>' : '') +
+        (!enProgreso && pendientes ? ' · ' + pendientes + ' por repasar' : '') +
         '</span></div>' +
         '<div class="acciones">' +
         '<button class="pri" data-acc="resolver">' + (enProgreso ? 'Continuar' : 'Resolver') + '</button>' +
+        (!enProgreso && pendientes ? '<button class="sec" data-acc="pendientes">Repetir falladas (' + pendientes + ')</button>' : '') +
         '<button class="sec" data-acc="editar">Editar</button>' +
         '<button class="sec" data-acc="eliminar">Eliminar</button>' +
         '</div>';
@@ -380,6 +384,7 @@
         const b = e.target.closest('button[data-acc]');
         if (!b) return;
         if (b.dataset.acc === 'resolver') { cuestionarioActual = q.id; presentar(enProgreso ? 'continuar' : undefined); }
+        else if (b.dataset.acc === 'pendientes') { cuestionarioActual = q.id; presentar('pendientes'); }
         else if (b.dataset.acc === 'editar') { cuestionarioActual = q.id; abrirEditor(); }
         else {
           if (!confirm('¿Eliminar el cuestionario "' + q.titulo + '"?')) return;
@@ -549,7 +554,13 @@ function indiceFuente(s, fuente) {
     }
 
     let base;
-    if (!fuente || fuente === 'todo') {
+    if (fuente === 'pendientes') {
+      const prog = Store.cargarProgreso(materiaActual, unidadActual, cuestionarioActual);
+      if (!prog || !Array.isArray(prog.pendientes) || !prog.pendientes.length) {
+        return aviso('No hay preguntas pendientes de repaso.', true);
+      }
+      base = prog.pendientes;
+    } else if (!fuente || fuente === 'todo') {
       base = q.preguntas;
     } else {
       if (!sesion) return;
@@ -578,7 +589,7 @@ function indiceFuente(s, fuente) {
     $('#areaPresentar').classList.remove('oculto');
     pintarPregunta();
     ver('presentar');
-    if (!fuente || fuente === 'todo') guardarProgSesion();
+    guardarProgSesion();
   }
 
   function pintarPregunta() {
@@ -663,8 +674,6 @@ function indiceFuente(s, fuente) {
     const sinResponder = s.respuestas.filter(function (r) { return r === null; }).length;
     if (sinResponder && !confirm('Quedan ' + plural(sinResponder, 'pregunta') + ' sin responder. ¿Ver el resultado?')) return;
 
-    Store.limpiarProgreso(materiaActual, unidadActual, cuestionarioActual);
-
     let acertadas = 0;
     let repasables = 0;
     let forzadas = 0;
@@ -678,6 +687,18 @@ function indiceFuente(s, fuente) {
       if (forzada) forzadas++;
       return { p: p, elegida: r, ok: ok, forzada: forzada };
     });
+
+    const pendientes = items.filter(function (it) { return !it.ok; })
+      .map(function (it) { return it.p; });
+    if (pendientes.length) {
+      Store.guardarProgreso(materiaActual, unidadActual, cuestionarioActual, {
+        pendientes: pendientes,
+        ts: Date.now()
+      });
+    } else {
+      Store.limpiarProgreso(materiaActual, unidadActual, cuestionarioActual);
+    }
+
     const total = s.preguntas.length;
     const pct = Math.round(acertadas / total * 100);
 

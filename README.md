@@ -60,6 +60,9 @@ descarta y se reporta con su número de línea, sin perder el resto del texto.
 - Al elegir opción, la correcta se resalta en verde y la elegida en rojo.
 - Al terminar se muestra el porcentaje, los aciertos y los errores, más la
   revisión pregunta por pregunta.
+- Las preguntas falladas o forzadas quedan guardadas como pendientes: en la
+  tarjeta del cuestionario aparece `Repetir falladas (N)` para repasarlas luego,
+  incluso después de cerrar la página o en otro dispositivo.
 
 ## Dónde se guardan los datos
 
